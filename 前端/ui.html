@@ -1156,7 +1156,8 @@ function exportPoemCard(idx) {
   const coupletLines = [];
   for (let i = 0; i < segs.length; i += 2) {
     if (i + 1 < segs.length) {
-      coupletLines.push(`${segs[i]}  ${segs[i + 1]}`);
+      // 中文全角标点自身已自带标准停顿字宽，切勿再额外添加空格，杜绝中间断层脱节
+      coupletLines.push(`${segs[i]}${segs[i + 1]}`);
     } else {
       coupletLines.push(segs[i]);
     }
@@ -1307,7 +1308,7 @@ function formatVersesHTML(versesStr) {
   const coupletLines = [];
   for (let i = 0; i < segs.length; i += 2) {
     if (i + 1 < segs.length) {
-      coupletLines.push(`${escapeHtml(segs[i])}&emsp;${escapeHtml(segs[i + 1])}`);
+      coupletLines.push(`${escapeHtml(segs[i])}${escapeHtml(segs[i + 1])}`);
     } else {
       coupletLines.push(escapeHtml(segs[i]));
     }

@@ -2,6 +2,8 @@
 
 > 一个从零手写的迷你 GPT 古风写诗小模型（CPU 可训），打通全流程：**语料清洗 → 分词器实现 → 自回归 Transformer 训练 → 符号平水韵评分与 Best-of-N 重排 → 国风 Web/API 部署**。
 
+> 🔗 **GitHub 仓库**：https://github.com/felyou0416/poem-mini-gpt （公开，含全部代码/模型权重/语料）
+
 ---
 
 ## 📁 目录结构

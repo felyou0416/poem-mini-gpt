@@ -950,6 +950,20 @@ function parsePoemBlock(rawText) {
     verses = lines;
   }
 
+  // 智能规整分行：若正文未分行或单行包含多个逗号句号，自动按标点（，。！？；）切分为标准诗句
+  let formattedVerses = [];
+  verses.forEach(v => {
+    const segs = v.match(/[^，。！？；\n]+[，。！？；]?/g);
+    if (segs && segs.length > 1) {
+      formattedVerses.push(...segs.map(s => s.trim()).filter(Boolean));
+    } else if (v.trim()) {
+      formattedVerses.push(v.trim());
+    }
+  });
+  if (formattedVerses.length > 0) {
+    verses = formattedVerses;
+  }
+
   return { title, author, styleTag, rhymeTag, verses: verses.join("\n"), raw: rawText };
 }
 
@@ -1120,9 +1134,21 @@ function exportPoemCard(idx) {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
 
-  // 1. 数据整理与诗句分行
+  // 1. 数据整理与诗句分行（无论原始数据是否含换行，均按句读标点逐句切分，彻底杜绝单行溢出）
+  let lines = [];
   const rawLines = (p.verses || "").split("\n").map(l => l.trim()).filter(Boolean);
-  const lines = rawLines.length > 0 ? rawLines : [p.verses.trim()];
+  rawLines.forEach(ln => {
+    const segs = ln.match(/[^，。！？；\n]+[，。！？；]?/g);
+    if (segs && segs.length > 1) {
+      lines.push(...segs.map(s => s.trim()).filter(Boolean));
+    } else if (ln.trim()) {
+      lines.push(ln.trim());
+    }
+  });
+  if (lines.length === 0 && p.verses) {
+    const segs = p.verses.match(/[^，。！？；\n]+[，。！？；]?/g);
+    lines = segs ? segs.map(s => s.trim()).filter(Boolean) : [p.verses.trim()];
+  }
   const width = 500;
 
   // 2. 自适应动态高度计算（精准留白黄金比例，杜绝死板大片空白）
@@ -1324,7 +1350,18 @@ function exportPoemCard(idx) {
   }
 
   lines.forEach(line => {
-    ctx.fillText(line, width / 2, curY + 16);
+    // 文本宽度溢出保护：若单行字数过长，自动等比微调字号
+    const maxW = width - 80;
+    const measuredW = ctx.measureText(line).width;
+    if (measuredW > maxW) {
+      ctx.save();
+      const scaleFactor = Math.max(0.65, maxW / measuredW);
+      ctx.font = `${Math.floor(21 * scaleFactor)}px 'STKaiti', 'KaiTi', 'Songti SC', serif`;
+      ctx.fillText(line, width / 2, curY + 16);
+      ctx.restore();
+    } else {
+      ctx.fillText(line, width / 2, curY + 16);
+    }
     curY += lineH;
   });
 

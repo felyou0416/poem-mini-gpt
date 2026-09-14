@@ -181,16 +181,31 @@ def gen_poems(model, stoi, itos, cfg, seed, temperature, n, max_rounds=3):
     scored.sort(key=lambda x: x[0], reverse=True)
 
     # 组装返回文本：作者名统一显示为「佚名」，原预测作者名作为风格标签（如「刘禹锡风格」）；
-    # 若成功押韵，在佚名后附韵部小标签（如〔押七尤〕）
+    # 若成功押韵，在佚名后附韵部小标签（如〔押七尤〕）；并将正文诗句规整分行（每句一行）
     final_poems = []
     for score_val, ev, raw_b in scored[:n]:
         lines = raw_b.split("\n")
+        author_li = None
         for li in range(1, min(len(lines), 4)):
             if _is_author_line(lines[li]):
                 style = lines[li].strip()
                 tag = f"  〔押{ev['rhyme_name']}〕" if ev["is_rhymed"] and ev["rhyme_name"] else ""
                 lines[li] = f"佚名（{style}风格）{tag}"
+                author_li = li
                 break
+
+        # 诗句按标点规整分行（彻底解决正文无换行挤在单行导致排版溢出问题）
+        if author_li is not None and author_li + 1 < len(lines):
+            body_text = "\n".join(lines[author_li + 1:])
+            segs = [s.strip() for s in re.findall(r'[^，。！？；\n]+[，。！？；]?', body_text) if s.strip()]
+            if segs:
+                lines = lines[:author_li + 1] + segs
+        elif author_li is None and len(lines) > 1:
+            body_text = "\n".join(lines[1:])
+            segs = [s.strip() for s in re.findall(r'[^，。！？；\n]+[，。！？；]?', body_text) if s.strip()]
+            if segs:
+                lines = lines[:1] + segs
+
         final_poems.append("\n".join(lines))
 
     return final_poems

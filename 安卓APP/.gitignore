@@ -1,0 +1,8 @@
+# 安卓工程忽略：构建缓存与本地配置
+.gradle/
+build/
+app/build/
+local.properties
+captures/
+*.jks
+*.keystore

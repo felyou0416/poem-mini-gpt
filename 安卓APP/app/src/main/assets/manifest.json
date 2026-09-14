@@ -1,0 +1,568 @@
+{
+ "tok_emb.weight": {
+  "offset": 0,
+  "shape": [
+   4006,
+   192
+  ]
+ },
+ "blocks.0.norm1.weight": {
+  "offset": 1,
+  "shape": [
+   192
+  ]
+ },
+ "blocks.0.attn.bias": {
+  "offset": 2,
+  "shape": [
+   1,
+   1,
+   128,
+   128
+  ]
+ },
+ "blocks.0.attn.c_attn.weight": {
+  "offset": 3,
+  "shape": [
+   576,
+   192
+  ]
+ },
+ "blocks.0.attn.c_attn.bias": {
+  "offset": 4,
+  "shape": [
+   576
+  ]
+ },
+ "blocks.0.attn.c_proj.weight": {
+  "offset": 5,
+  "shape": [
+   192,
+   192
+  ]
+ },
+ "blocks.0.attn.c_proj.bias": {
+  "offset": 6,
+  "shape": [
+   192
+  ]
+ },
+ "blocks.0.attn.rope.cos_cached": {
+  "offset": 7,
+  "shape": [
+   1,
+   1,
+   128,
+   16
+  ]
+ },
+ "blocks.0.attn.rope.sin_cached": {
+  "offset": 8,
+  "shape": [
+   1,
+   1,
+   128,
+   16
+  ]
+ },
+ "blocks.0.norm2.weight": {
+  "offset": 9,
+  "shape": [
+   192
+  ]
+ },
+ "blocks.0.mlp.fc.weight": {
+  "offset": 10,
+  "shape": [
+   768,
+   192
+  ]
+ },
+ "blocks.0.mlp.fc.bias": {
+  "offset": 11,
+  "shape": [
+   768
+  ]
+ },
+ "blocks.0.mlp.proj.weight": {
+  "offset": 12,
+  "shape": [
+   192,
+   768
+  ]
+ },
+ "blocks.0.mlp.proj.bias": {
+  "offset": 13,
+  "shape": [
+   192
+  ]
+ },
+ "blocks.1.norm1.weight": {
+  "offset": 14,
+  "shape": [
+   192
+  ]
+ },
+ "blocks.1.attn.bias": {
+  "offset": 15,
+  "shape": [
+   1,
+   1,
+   128,
+   128
+  ]
+ },
+ "blocks.1.attn.c_attn.weight": {
+  "offset": 16,
+  "shape": [
+   576,
+   192
+  ]
+ },
+ "blocks.1.attn.c_attn.bias": {
+  "offset": 17,
+  "shape": [
+   576
+  ]
+ },
+ "blocks.1.attn.c_proj.weight": {
+  "offset": 18,
+  "shape": [
+   192,
+   192
+  ]
+ },
+ "blocks.1.attn.c_proj.bias": {
+  "offset": 19,
+  "shape": [
+   192
+  ]
+ },
+ "blocks.1.attn.rope.cos_cached": {
+  "offset": 20,
+  "shape": [
+   1,
+   1,
+   128,
+   16
+  ]
+ },
+ "blocks.1.attn.rope.sin_cached": {
+  "offset": 21,
+  "shape": [
+   1,
+   1,
+   128,
+   16
+  ]
+ },
+ "blocks.1.norm2.weight": {
+  "offset": 22,
+  "shape": [
+   192
+  ]
+ },
+ "blocks.1.mlp.fc.weight": {
+  "offset": 23,
+  "shape": [
+   768,
+   192
+  ]
+ },
+ "blocks.1.mlp.fc.bias": {
+  "offset": 24,
+  "shape": [
+   768
+  ]
+ },
+ "blocks.1.mlp.proj.weight": {
+  "offset": 25,
+  "shape": [
+   192,
+   768
+  ]
+ },
+ "blocks.1.mlp.proj.bias": {
+  "offset": 26,
+  "shape": [
+   192
+  ]
+ },
+ "blocks.2.norm1.weight": {
+  "offset": 27,
+  "shape": [
+   192
+  ]
+ },
+ "blocks.2.attn.bias": {
+  "offset": 28,
+  "shape": [
+   1,
+   1,
+   128,
+   128
+  ]
+ },
+ "blocks.2.attn.c_attn.weight": {
+  "offset": 29,
+  "shape": [
+   576,
+   192
+  ]
+ },
+ "blocks.2.attn.c_attn.bias": {
+  "offset": 30,
+  "shape": [
+   576
+  ]
+ },
+ "blocks.2.attn.c_proj.weight": {
+  "offset": 31,
+  "shape": [
+   192,
+   192
+  ]
+ },
+ "blocks.2.attn.c_proj.bias": {
+  "offset": 32,
+  "shape": [
+   192
+  ]
+ },
+ "blocks.2.attn.rope.cos_cached": {
+  "offset": 33,
+  "shape": [
+   1,
+   1,
+   128,
+   16
+  ]
+ },
+ "blocks.2.attn.rope.sin_cached": {
+  "offset": 34,
+  "shape": [
+   1,
+   1,
+   128,
+   16
+  ]
+ },
+ "blocks.2.norm2.weight": {
+  "offset": 35,
+  "shape": [
+   192
+  ]
+ },
+ "blocks.2.mlp.fc.weight": {
+  "offset": 36,
+  "shape": [
+   768,
+   192
+  ]
+ },
+ "blocks.2.mlp.fc.bias": {
+  "offset": 37,
+  "shape": [
+   768
+  ]
+ },
+ "blocks.2.mlp.proj.weight": {
+  "offset": 38,
+  "shape": [
+   192,
+   768
+  ]
+ },
+ "blocks.2.mlp.proj.bias": {
+  "offset": 39,
+  "shape": [
+   192
+  ]
+ },
+ "blocks.3.norm1.weight": {
+  "offset": 40,
+  "shape": [
+   192
+  ]
+ },
+ "blocks.3.attn.bias": {
+  "offset": 41,
+  "shape": [
+   1,
+   1,
+   128,
+   128
+  ]
+ },
+ "blocks.3.attn.c_attn.weight": {
+  "offset": 42,
+  "shape": [
+   576,
+   192
+  ]
+ },
+ "blocks.3.attn.c_attn.bias": {
+  "offset": 43,
+  "shape": [
+   576
+  ]
+ },
+ "blocks.3.attn.c_proj.weight": {
+  "offset": 44,
+  "shape": [
+   192,
+   192
+  ]
+ },
+ "blocks.3.attn.c_proj.bias": {
+  "offset": 45,
+  "shape": [
+   192
+  ]
+ },
+ "blocks.3.attn.rope.cos_cached": {
+  "offset": 46,
+  "shape": [
+   1,
+   1,
+   128,
+   16
+  ]
+ },
+ "blocks.3.attn.rope.sin_cached": {
+  "offset": 47,
+  "shape": [
+   1,
+   1,
+   128,
+   16
+  ]
+ },
+ "blocks.3.norm2.weight": {
+  "offset": 48,
+  "shape": [
+   192
+  ]
+ },
+ "blocks.3.mlp.fc.weight": {
+  "offset": 49,
+  "shape": [
+   768,
+   192
+  ]
+ },
+ "blocks.3.mlp.fc.bias": {
+  "offset": 50,
+  "shape": [
+   768
+  ]
+ },
+ "blocks.3.mlp.proj.weight": {
+  "offset": 51,
+  "shape": [
+   192,
+   768
+  ]
+ },
+ "blocks.3.mlp.proj.bias": {
+  "offset": 52,
+  "shape": [
+   192
+  ]
+ },
+ "blocks.4.norm1.weight": {
+  "offset": 53,
+  "shape": [
+   192
+  ]
+ },
+ "blocks.4.attn.bias": {
+  "offset": 54,
+  "shape": [
+   1,
+   1,
+   128,
+   128
+  ]
+ },
+ "blocks.4.attn.c_attn.weight": {
+  "offset": 55,
+  "shape": [
+   576,
+   192
+  ]
+ },
+ "blocks.4.attn.c_attn.bias": {
+  "offset": 56,
+  "shape": [
+   576
+  ]
+ },
+ "blocks.4.attn.c_proj.weight": {
+  "offset": 57,
+  "shape": [
+   192,
+   192
+  ]
+ },
+ "blocks.4.attn.c_proj.bias": {
+  "offset": 58,
+  "shape": [
+   192
+  ]
+ },
+ "blocks.4.attn.rope.cos_cached": {
+  "offset": 59,
+  "shape": [
+   1,
+   1,
+   128,
+   16
+  ]
+ },
+ "blocks.4.attn.rope.sin_cached": {
+  "offset": 60,
+  "shape": [
+   1,
+   1,
+   128,
+   16
+  ]
+ },
+ "blocks.4.norm2.weight": {
+  "offset": 61,
+  "shape": [
+   192
+  ]
+ },
+ "blocks.4.mlp.fc.weight": {
+  "offset": 62,
+  "shape": [
+   768,
+   192
+  ]
+ },
+ "blocks.4.mlp.fc.bias": {
+  "offset": 63,
+  "shape": [
+   768
+  ]
+ },
+ "blocks.4.mlp.proj.weight": {
+  "offset": 64,
+  "shape": [
+   192,
+   768
+  ]
+ },
+ "blocks.4.mlp.proj.bias": {
+  "offset": 65,
+  "shape": [
+   192
+  ]
+ },
+ "blocks.5.norm1.weight": {
+  "offset": 66,
+  "shape": [
+   192
+  ]
+ },
+ "blocks.5.attn.bias": {
+  "offset": 67,
+  "shape": [
+   1,
+   1,
+   128,
+   128
+  ]
+ },
+ "blocks.5.attn.c_attn.weight": {
+  "offset": 68,
+  "shape": [
+   576,
+   192
+  ]
+ },
+ "blocks.5.attn.c_attn.bias": {
+  "offset": 69,
+  "shape": [
+   576
+  ]
+ },
+ "blocks.5.attn.c_proj.weight": {
+  "offset": 70,
+  "shape": [
+   192,
+   192
+  ]
+ },
+ "blocks.5.attn.c_proj.bias": {
+  "offset": 71,
+  "shape": [
+   192
+  ]
+ },
+ "blocks.5.attn.rope.cos_cached": {
+  "offset": 72,
+  "shape": [
+   1,
+   1,
+   128,
+   16
+  ]
+ },
+ "blocks.5.attn.rope.sin_cached": {
+  "offset": 73,
+  "shape": [
+   1,
+   1,
+   128,
+   16
+  ]
+ },
+ "blocks.5.norm2.weight": {
+  "offset": 74,
+  "shape": [
+   192
+  ]
+ },
+ "blocks.5.mlp.fc.weight": {
+  "offset": 75,
+  "shape": [
+   768,
+   192
+  ]
+ },
+ "blocks.5.mlp.fc.bias": {
+  "offset": 76,
+  "shape": [
+   768
+  ]
+ },
+ "blocks.5.mlp.proj.weight": {
+  "offset": 77,
+  "shape": [
+   192,
+   768
+  ]
+ },
+ "blocks.5.mlp.proj.bias": {
+  "offset": 78,
+  "shape": [
+   192
+  ]
+ },
+ "norm_f.weight": {
+  "offset": 79,
+  "shape": [
+   192
+  ]
+ },
+ "lm_head.weight": {
+  "offset": 80,
+  "shape": [
+   4006,
+   192
+  ]
+ }
+}

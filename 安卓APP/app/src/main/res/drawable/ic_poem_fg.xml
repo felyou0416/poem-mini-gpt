@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 圆月 -->
+    <path
+        android:fillColor="#F6F0E3"
+        android:pathData="M74,26 a10,10 0 1,1 0.1,0 Z" />
+    <!-- 远山（前景墨山两层） -->
+    <path
+        android:fillColor="#EDE4CF"
+        android:pathData="M4,84 L38,34 L72,84 Z" />
+    <path
+        android:fillColor="#F6F0E3"
+        android:pathData="M38,84 L64,52 L90,84 Z" />
+    <!-- 近处山脚 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M52,84 L72,62 L104,84 Z" />
+</vector>

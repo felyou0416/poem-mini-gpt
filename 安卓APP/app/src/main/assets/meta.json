@@ -1,0 +1,27 @@
+{
+ "name": "五言BPE v3·SFT",
+ "arch": "v3",
+ "n_layer": 6,
+ "n_embd": 192,
+ "n_head": 6,
+ "block_size": 128,
+ "vocab_size": 4006,
+ "dropout": 0.0,
+ "norm_eps": 1e-06,
+ "rope_base": 10000.0,
+ "special": {
+  "bos": 0,
+  "title": 1,
+  "author": 2,
+  "body": 3,
+  "eos": 4,
+  "unk": 5
+ },
+ "sampling": {
+  "temperature": 0.6,
+  "top_k": 60,
+  "max_tokens": 140,
+  "candidates_k": 12,
+  "num_poems": 3
+ }
+}

@@ -4,6 +4,8 @@
 
 > 🔗 **GitHub 仓库**：https://github.com/felyou0416/poem-mini-gpt （公开，含全部代码/模型权重/语料）
 
+> 📱 **安卓 APP**（2026-09-14）：`安卓APP\写诗AI_v1.0.apk` —— 模型推理完全在手机本地离线跑（纯 Kotlin 复刻 MiniGPT_v3 + KV-cache 加速，20.4MB），启动自动自检，输入开头一键出 3 首。源码在 `安卓APP\`（Android 工程，Kotlin + AGP 8.4）。
+
 ---
 
 ## 📁 目录结构

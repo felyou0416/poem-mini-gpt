@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 国风配色：宣纸米白 / 墨色 / 朱砂红 -->
+    <color name="paper">#F6F0E3</color>
+    <color name="paper_dark">#EDE4CF</color>
+    <color name="ink">#2E2A26</color>
+    <color name="ink_light">#6E675E</color>
+    <color name="cinnabar">#A63D2F</color>
+    <color name="cinnabar_dark">#8A3226</color>
+    <color name="gold">#C9A227</color>
+    <color name="white">#FFFFFF</color>
+</resources>

@@ -1,0 +1,110 @@
+name: Android CI - Build and Release Poetry AI APK
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+    paths:
+      - '安卓APP/**'
+      - '.github/workflows/build-apk.yml'
+  pull_request:
+    branches:
+      - main
+      - master
+    paths:
+      - '安卓APP/**'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Poetry AI APK (Single Model v3 SFT)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.7
+
+      - name: Inspect and Verify Single Model in Assets
+        run: |
+          echo "=========================================="
+          echo "=== 检查 assets 目录模型配置 ==="
+          echo "=========================================="
+          ASSETS_DIR="安卓APP/app/src/main/assets"
+          ls -lh "$ASSETS_DIR"
+
+          # 确保仅打包单一目标模型 model.bin，杜绝多模型膨胀
+          BIN_COUNT=$(find "$ASSETS_DIR" -maxdepth 1 -name "*.bin" | wc -l)
+          echo "检测到模型 bin 文件数量: $BIN_COUNT"
+          if [ "$BIN_COUNT" -ne 1 ]; then
+            echo "::error::assets 目录中必须且仅能存在 1 个 model.bin 模型文件！当前检测到 $BIN_COUNT 个。"
+            exit 1
+          fi
+
+          PT_COUNT=$(find "$ASSETS_DIR" -maxdepth 1 -name "*.pt" | wc -l)
+          if [ "$PT_COUNT" -ne 0 ]; then
+            echo "::error::assets 目录中严禁放入原始 PyTorch .pt 权重！当前检测到 $PT_COUNT 个。"
+            exit 1
+          fi
+
+          MODEL_SIZE=$(stat -c%s "$ASSETS_DIR/model.bin" 2>/dev/null || stat -f%z "$ASSETS_DIR/model.bin")
+          echo "单一模型 model.bin 大小: $MODEL_SIZE 字节 (~17.3MB)"
+          echo "模型校验通过：仅打包'五言BPE v3·SFT'单一离线推理模型。"
+
+      - name: Build Debug APK
+        working-directory: ./安卓APP
+        run: |
+          gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Prepare APK Output
+        run: |
+          mkdir -p release_apk
+          cp "安卓APP/app/build/outputs/apk/debug/app-debug.apk" "release_apk/写诗AI_v3_sft.apk"
+          echo "=== 构建产物清单 ==="
+          ls -lh release_apk/
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 写诗AI-v3-SFT-安卓安装包
+          path: release_apk/写诗AI_v3_sft.apk
+          retention-days: 30
+
+      - name: Publish GitHub Release
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0
+          name: "写诗 AI 安卓客户端 v1.0.0 (五言BPE v3·SFT 纯离线版)"
+          files: release_apk/写诗AI_v3_sft.apk
+          body: |
+            ## 写诗 AI · 安卓端离线推理客户端 (v1.0.0)
+
+            本安装包通过 GitHub Actions 云端流水线全自动构建，已包含标准签名，下载即可直接在安卓设备安装运行。
+
+            ### 📦 模型规格
+            - **核心模型**: 五言BPE v3·SFT 旗舰版（全唐诗名篇精调，344万参数，6层/192维/6头 RoPE + RMSNorm）
+            - **体积大小**: ~20MB（严格保证仅内置单一目标模型，杜绝冗余体积）
+            - **内置能力**: 平水韵十四韵评分筛选 + Best-of-N 优选重排 + 自动停机 `<|eos|>`
+            - **运行特性**: 纯本地运行，无需联网，离线秒级出诗
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

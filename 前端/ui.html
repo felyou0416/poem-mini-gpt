@@ -455,39 +455,17 @@
 
   .poem-content {
     font-family: "STKaiti", "KaiTi", "Biaukai", "Songti SC", serif;
-    font-size: 19px;
-    line-height: 1.75;
-    color: #1a1816;
+    font-size: 20px;
+    line-height: 2.1;
+    color: #1e1c1a;
     letter-spacing: 1.5px;
-    margin: 14px 0 18px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .couplet-row {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 16px;
-    width: auto;
-  }
-
-  .couplet-col.left {
-    text-align: right;
-    white-space: nowrap;
-  }
-
-  .couplet-col.right {
-    text-align: left;
-    white-space: nowrap;
-  }
-
-  .single-line {
+    margin: 16px 0 20px;
     text-align: center;
+  }
+
+  .couplet-line {
     white-space: nowrap;
-    width: 100%;
+    text-align: center;
   }
 
   /* 卡片底部操作按钮栏 */
@@ -1151,7 +1129,7 @@ function recitePoem(idx) {
   speechSynthesis.speak(utterance);
 }
 
-// ---------- 实用功能：Canvas 宣纸风精致诗卡导出 ----------
+// ---------- 实用功能：Canvas 宣纸风精致诗卡导出（复刻用户喜爱原版风格） ----------
 function exportPoemCard(idx) {
   const p = window._CURRENT_POEMS[idx];
   if (!p) return;
@@ -1159,7 +1137,7 @@ function exportPoemCard(idx) {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
 
-  // 1. 数据整理与诗句分句
+  // 1. 数据整理与对联分行（每联一行：上联，  下联。）
   let segs = [];
   const rawLines = (p.verses || "").split("\n").map(l => l.trim()).filter(Boolean);
   rawLines.forEach(ln => {
@@ -1175,82 +1153,46 @@ function exportPoemCard(idx) {
     segs = matched ? matched.map(s => s.trim()).filter(Boolean) : [p.verses.trim()];
   }
 
-  // 2. 智能版面生成：绝句(<=4句)单句居中，律诗(>4句)双列紧凑对仗
-  const linesToRender = [];
-  if (segs.length <= 4) {
-    segs.forEach(s => linesToRender.push({ mode: "single", s1: s, s2: "" }));
-  } else {
-    for (let i = 0; i < segs.length; i += 2) {
-      if (i + 1 < segs.length) {
-        linesToRender.push({ mode: "couplet", s1: segs[i], s2: segs[i + 1] });
-      } else {
-        linesToRender.push({ mode: "single", s1: segs[i], s2: "" });
-      }
+  const coupletLines = [];
+  for (let i = 0; i < segs.length; i += 2) {
+    if (i + 1 < segs.length) {
+      coupletLines.push(`${segs[i]}  ${segs[i + 1]}`);
+    } else {
+      coupletLines.push(segs[i]);
     }
   }
 
-  // 3. 紧凑精修尺寸体系（宽 400px，高度自然自适应，彻底解决空旷散漫）
-  const width = 400;
-  const topPad = 42;
-  const titleH = 30;
-  const metaH = 22;
-  const dividerH = 18;
-  const gapBefore = 20;
-  const rowH = 34; // 紧凑行距：34px对应19px字号，气韵紧密连贯
-  const versesH = linesToRender.length * rowH;
-  const gapAfter = 24;
-  const footerH = 28;
-  const bottomPad = 22;
+  // 2. 比例与自适应高度（与用户参考原图 872x1024 / 436x512 保持完全一致）
+  const width = 436;
+  const isShort = coupletLines.length <= 2;
+  const height = isShort ? 440 : 512;
 
-  const height = topPad + titleH + metaH + dividerH + gapBefore + versesH + gapAfter + footerH + bottomPad;
-
-  // 4. 超采样 2x 视网膜高清分辨率 (导出 800px 宽超清图片)
+  // 3. 超采样 2x 视网膜高清分辨率 (872 x 1024)
   const dpr = 2;
   canvas.width = width * dpr;
   canvas.height = height * dpr;
   ctx.scale(dpr, dpr);
 
-  // 辅助圆角矩形绘制函数
-  function drawRoundRect(x, y, w, h, r) {
-    if (ctx.roundRect) {
-      ctx.beginPath();
-      ctx.roundRect(x, y, w, h, r);
-      return;
-    }
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + w - r, y);
-    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-    ctx.lineTo(x + w, y + h - r);
-    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-    ctx.lineTo(x + r, y + h);
-    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-    ctx.lineTo(x, y + r);
-    ctx.quadraticCurveTo(x, y, x + r, y);
-    ctx.closePath();
-  }
-
-  // 5. 绘制宣纸渐变底色（上暖浅，下稍沉）
+  // 4. 绘制宣纸复古微渐变底色
   const grad = ctx.createLinearGradient(0, 0, width, height);
-  grad.addColorStop(0, "#FAF7F1");
-  grad.addColorStop(1, "#F4ECE0");
+  grad.addColorStop(0, "#FBF8F1");
+  grad.addColorStop(1, "#F4ECE1");
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, width, height);
 
-  // 6. 绘制宋韵雅致双重内边框与古法四角回纹
-  const m1 = 14;
-  ctx.strokeStyle = "#DDD1BC";
-  ctx.lineWidth = 1.2;
+  // 5. 绘制典雅双重内边框与四角回纹折线
+  const m1 = 16;
+  ctx.strokeStyle = "#D9CEBA";
+  ctx.lineWidth = 1.8;
   ctx.strokeRect(m1, m1, width - m1 * 2, height - m1 * 2);
 
-  const m2 = 19;
-  ctx.strokeStyle = "#ECE3D4";
+  const m2 = 22;
+  ctx.strokeStyle = "#E8E0D2";
   ctx.lineWidth = 1;
   ctx.strokeRect(m2, m2, width - m2 * 2, height - m2 * 2);
 
-  // 四角笺纸古典折纹
-  const cw = 5;
-  ctx.strokeStyle = "#C4B7A0";
+  const cw = 6;
+  ctx.strokeStyle = "#C7BBA6";
   ctx.lineWidth = 1;
   [
     [m2, m2, 1, 1],
@@ -1265,22 +1207,61 @@ function exportPoemCard(idx) {
     ctx.stroke();
   });
 
-  // 7. 右上角「墨韵雅成」朱砂小印章（小巧 28px，微倾斜，古法温润）
-  ctx.save();
-  const sealW = 28;
-  const sealX = width - 22 - sealW;
-  const sealY = 22;
-  ctx.translate(sealX + sealW / 2, sealY + sealW / 2);
-  ctx.rotate(4 * Math.PI / 180);
-  ctx.translate(-(sealX + sealW / 2), -(sealY + sealW / 2));
+  // 6. 诗歌标题 (宋体粗体居中)
+  ctx.fillStyle = "#262421";
+  ctx.font = "bold 22px 'Songti SC', 'SimSun', 'STSong', serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(p.title, width / 2, 65);
 
-  ctx.strokeStyle = "#9B3124";
-  ctx.lineWidth = 1.3;
-  drawRoundRect(sealX, sealY, sealW, sealW, 3);
+  // 7. 作者行 (灰褐淡雅居中)
+  let authorStr = "◈ " + p.author;
+  if (p.styleTag) authorStr += `（${p.styleTag}风格）`;
+  if (p.rhymeTag) authorStr += `  〔押${p.rhymeTag}〕`;
+  ctx.fillStyle = "#7E7567";
+  ctx.font = "13px 'PingFang SC', 'Microsoft YaHei', sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(authorStr, width / 2, 98);
+
+  // 8. 简约装饰横线
+  ctx.strokeStyle = "#E4DAC8";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(width / 2 - 38, 118);
+  ctx.lineTo(width / 2 + 38, 118);
   ctx.stroke();
 
-  ctx.fillStyle = "#9B3124";
-  ctx.font = "bold 10px 'Songti SC', 'SimSun', 'STSong', serif";
+  // 9. 诗词正文 (楷体居中整饬，一联一行，疏密有致)
+  const lineH = 38;
+  const startY = isShort ? 160 : 155;
+  ctx.fillStyle = "#1E1C1A";
+  ctx.font = "20px 'STKaiti', 'KaiTi', 'Songti SC', serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  coupletLines.forEach((line, idx) => {
+    const yPos = startY + idx * lineH + lineH / 2;
+    ctx.fillText(line, width / 2, yPos);
+  });
+
+  // 10. 右下角朱砂红印章「墨韵雅成」 (经典压角章位置)
+  const sealW = 42;
+  const sealX = width - 76;
+  const sealY = height - 96;
+
+  ctx.strokeStyle = "#A8382B";
+  ctx.lineWidth = 1.8;
+  if (ctx.roundRect) {
+    ctx.beginPath();
+    ctx.roundRect(sealX, sealY, sealW, sealW, 2);
+    ctx.stroke();
+  } else {
+    ctx.strokeRect(sealX, sealY, sealW, sealW);
+  }
+
+  ctx.fillStyle = "#A8382B";
+  ctx.font = "bold 12px 'Songti SC', 'SimSun', serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   const sHalf = sealW / 2;
@@ -1288,83 +1269,15 @@ function exportPoemCard(idx) {
   ctx.fillText("韵", sealX + sHalf * 1.5, sealY + sHalf * 0.5);
   ctx.fillText("雅", sealX + sHalf * 0.5, sealY + sHalf * 1.5);
   ctx.fillText("成", sealX + sHalf * 1.5, sealY + sHalf * 1.5);
-  ctx.restore();
 
-  // 8. 诗歌标题 (宋体浓墨大字居中)
-  let curY = topPad;
-  ctx.fillStyle = "#1B1917";
-  ctx.font = "bold 21px 'Songti SC', 'SimSun', 'Noto Serif SC', serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(p.title, width / 2, curY + 10);
-  curY += titleH;
-
-  // 9. 题跋作者行（文人雅致风：◈ 佚名（贾岛风格） · 押七尤）
-  let metaStr = "◈ " + p.author;
-  if (p.styleTag) metaStr += `（${p.styleTag}风格）`;
-  if (p.rhymeTag) metaStr += ` · 押${p.rhymeTag}`;
-  ctx.font = "11px 'PingFang SC', 'Microsoft YaHei', sans-serif";
-  ctx.fillStyle = "#7A7163";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(metaStr, width / 2, curY + 4);
-  curY += metaH;
-
-  // 10. 典雅细分割线与朱砂菱形
-  const lineY = curY + 4;
-  ctx.strokeStyle = "#DCD0BD";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(width / 2 - 28, lineY);
-  ctx.lineTo(width / 2 + 28, lineY);
-  ctx.stroke();
-
-  ctx.fillStyle = "#9B3124";
-  ctx.font = "8px serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("◈", width / 2, lineY);
-  curY += dividerH + gapBefore;
-
-  // 11. 诗词正文排版（两列紧凑间距 16px，左右呼应，气韵连贯）
-  const colGap = 16;
-  ctx.fillStyle = "#181614";
-  ctx.font = "19px 'STKaiti', 'KaiTi', 'Songti SC', serif";
-  ctx.textBaseline = "middle";
-  if ('letterSpacing' in ctx) {
-    ctx.letterSpacing = "1.5px";
-  }
-
-  linesToRender.forEach(item => {
-    const rowMidY = curY + rowH / 2;
-    if (item.mode === "single") {
-      ctx.textAlign = "center";
-      ctx.fillText(item.s1, width / 2, rowMidY);
-    } else {
-      ctx.textAlign = "right";
-      ctx.fillText(item.s1, width / 2 - colGap / 2, rowMidY);
-      ctx.textAlign = "left";
-      ctx.fillText(item.s2, width / 2 + colGap / 2, rowMidY);
-    }
-    curY += rowH;
-  });
-
-  if ('letterSpacing' in ctx) {
-    ctx.letterSpacing = "0px";
-  }
-
-  // 12. 底部落款
-  const footY = height - bottomPad;
-  ctx.fillStyle = "#A69C8E";
+  // 11. 底部小字落款 (左下角)
+  ctx.fillStyle = "#A39A8C";
   ctx.font = "10px 'PingFang SC', 'Microsoft YaHei', sans-serif";
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
-  ctx.fillText("迷你 GPT 诗词引擎 · 纯离线自回归生成", m2 + 8, footY);
+  ctx.fillText("迷你GPT写诗小模型 · 生成留念", 32, height - 34);
 
-  ctx.textAlign = "right";
-  ctx.fillText("—— 砚墨成诗", width - m2 - 8, footY);
-
-  // 13. 触发下载
+  // 12. 触发下载
   const link = document.createElement("a");
   const safeTitle = p.title.replace(/[《》\s]/g, "") || "诗词";
   link.download = `${safeTitle}_诗卡.png`;
@@ -1374,7 +1287,7 @@ function exportPoemCard(idx) {
   showToast("✓ 诗词精美图卡已导出");
 }
 
-// ---------- 辅助：将正文格式化为优雅诗行（绝句单句居中，律诗两列紧凑对排） ----------
+// ---------- 辅助：将正文格式化为对仗整联 HTML（每联一行，两半句自然隔空居中） ----------
 function formatVersesHTML(versesStr) {
   let segs = [];
   const rawLines = (versesStr || "").split("\n").map(l => l.trim()).filter(Boolean);
@@ -1391,28 +1304,16 @@ function formatVersesHTML(versesStr) {
     segs = matched ? matched.map(s => s.trim()).filter(Boolean) : [versesStr.trim()];
   }
 
-  // 绝句 (<= 4 句)：单句整齐居中排列（自然4行，疏朗整饬）
-  if (segs.length <= 4) {
-    return segs.map(s => `<div class="single-line">${escapeHtml(s)}</div>`).join("");
-  }
-
-  // 律诗 (> 4 句)：两两对仗成联，4行双列紧凑对排
-  const rows = [];
+  const coupletLines = [];
   for (let i = 0; i < segs.length; i += 2) {
     if (i + 1 < segs.length) {
-      rows.push(`
-        <div class="couplet-row">
-          <span class="couplet-col left">${escapeHtml(segs[i])}</span>
-          <span class="couplet-col right">${escapeHtml(segs[i + 1])}</span>
-        </div>
-      `);
+      coupletLines.push(`${escapeHtml(segs[i])}&emsp;${escapeHtml(segs[i + 1])}`);
     } else {
-      rows.push(`
-        <div class="single-line">${escapeHtml(segs[i])}</div>
-      `);
+      coupletLines.push(escapeHtml(segs[i]));
     }
   }
-  return rows.join("");
+
+  return coupletLines.map(line => `<div class="couplet-line">${line}</div>`).join("");
 }
 
 // ---------- 诗歌渲染（生成 / 历史切换共用） ----------

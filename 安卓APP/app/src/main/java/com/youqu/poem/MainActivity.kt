@@ -3,17 +3,21 @@ package com.youqu.poem
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
+import android.speech.tts.TextToSpeech
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.ScrollView
+import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -23,7 +27,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.util.Locale
 
+/**
+ * 砚墨成诗 · 迷你GPT写诗机（安卓原生国风控制面板）
+ * 1:1 复刻 Web 前端 (ui.html) 界面视觉与全部交互参数控制：
+ * 1. 灵感意象标签池（点击即填入）
+ * 2. 采样温度实时滑块（带黄金平衡/灵动/工整风格动态指导）
+ * 3. 生成首数胶囊选择器（1首/2首/3首/4首）
+ * 4. 宣纸卡片排版、朱砂红“墨韵雅成”印章、平水韵韵部徽章
+ * 5. 一键复制、系统分享、Android 原生语音慢速古风吟诵
+ * 6. 本次会话历史记录抽屉
+ */
 class MainActivity : AppCompatActivity() {
 
     private lateinit var model: MiniGPT
@@ -31,16 +46,43 @@ class MainActivity : AppCompatActivity() {
     private lateinit var generator: PoemGenerator
     private var ready = false
 
-    private lateinit var resultBox: LinearLayout
+    // 参数控制状态
+    private var currentTemp = 0.60f
+    private var currentN = 3
+
+    // UI 组件引用
+    private lateinit var seedInput: EditText
+    private lateinit var tempValBadge: TextView
+    private lateinit var tempStyleHint: TextView
+    private lateinit var generateBtn: Button
     private lateinit var statusText: TextView
     private lateinit var progressBar: ProgressBar
-    private lateinit var seedInput: EditText
-    private lateinit var generateBtn: Button
+    private lateinit var resultBox: LinearLayout
+    private lateinit var countBtns: List<TextView>
+
+    // 会话历史
+    private val historyList = ArrayList<Pair<String, String>>()
+    private lateinit var historyContainer: LinearLayout
+    private lateinit var historyToggleBtn: TextView
+
+    // 原生语音合成
+    private var tts: TextToSpeech? = null
+    private var isTtsReady = false
+    private var activeRecitingBtn: TextView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ============ 构建 UI（带滑动视口与传统美学） ============
+        // 初始化原生语音朗读引擎
+        tts = TextToSpeech(this) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                val res = tts?.setLanguage(Locale.CHINESE)
+                isTtsReady = res != TextToSpeech.LANG_MISSING_DATA && res != TextToSpeech.LANG_NOT_SUPPORTED
+                tts?.setSpeechRate(0.82f) // 古风吟诵略带停顿舒缓语速
+            }
+        }
+
+        // ============ 构建 UI（国风宣纸视口） ============
         val scroll = ScrollView(this).apply {
             isFillViewport = true
             setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.paper))
@@ -48,87 +90,289 @@ class MainActivity : AppCompatActivity() {
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(28), dp(20), dp(24))
+            setPadding(dp(16), dp(24), dp(16), dp(36))
         }
         scroll.addView(root)
 
-        // 标题
-        root.addView(TextView(this).apply {
-            text = "写诗 · AI"
-            textSize = 28f
-            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.cinnabar))
-            typeface = Typeface.create("serif", Typeface.BOLD)
+        // ---- 1. 顶栏 Header ----
+        val headerBox = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(18))
+        }
+
+        // 徽章
+        headerBox.addView(TextView(this).apply {
+            this.text = "✦ 迷你 GPT 诗词引擎"
+            textSize = 11f
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.pine_green))
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_rhyme_badge)
+            setPadding(dp(10), dp(3), dp(10), dp(3))
             gravity = Gravity.CENTER
         })
-        root.addView(TextView(this).apply {
-            text = "五言BPE v3·SFT ｜ 9.2万首预训练 + 3千首名篇微调 · 手机离线推理"
+
+        // 大标题
+        headerBox.addView(TextView(this).apply {
+            this.text = "砚 墨 成 诗"
+            textSize = 27f
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink))
+            typeface = Typeface.create("serif", Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(0, dp(6), 0, dp(2))
+        })
+
+        // 副标题
+        headerBox.addView(TextView(this).apply {
+            this.text = "轻量自回归语言模型 · 古风古典格律自动生成"
+            textSize = 12f
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink_muted))
+            gravity = Gravity.CENTER
+        })
+        root.addView(headerBox)
+
+        // 主交互卡片
+        val mainCard = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_card)
+            setPadding(dp(18), dp(20), dp(18), dp(20))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(18) }
+        }
+
+        // ---- 2. 灵感命题/诗歌开头 ----
+        mainCard.addView(createSectionLabel("灵感命题 / 诗歌开头", "支持意象词或《标题》"))
+
+        seedInput = EditText(this).apply {
+            setText("秋思")
+            hint = "如：秋思（意境） / 《山高水流》（标题）"
+            textSize = 15f
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink))
+            setHintTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink_muted))
+            setPadding(dp(12), dp(9), dp(12), dp(9))
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_input)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(44)).apply {
+                bottomMargin = dp(8)
+            }
+        }
+        mainCard.addView(seedInput)
+
+        // 灵感标签推荐池（水平滚动）
+        val tagScroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = dp(16)
+            }
+        }
+        val tagRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(2), 0, dp(2))
+        }
+
+        val moodTags = listOf("秋思", "孤舟", "咏梅", "听雨", "登高", "夜泊")
+        for (t in moodTags) {
+            tagRow.addView(createTagChip(t, false))
+        }
+        val titleTags = listOf("《春日》", "《山高水流》", "《临江仙》")
+        for (t in titleTags) {
+            tagRow.addView(createTagChip(t, true))
+        }
+        tagScroll.addView(tagRow)
+        mainCard.addView(tagScroll)
+
+        // ---- 3. 推理模型卡片 ----
+        mainCard.addView(createSectionLabel("推理模型", "4,006 词元 · 344万参数 · 唐风微调"))
+        val modelBox = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_model_box)
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = dp(16)
+            }
+        }
+        modelBox.addView(TextView(this).apply {
+            this.text = "🏮"
+            textSize = 18f
+            setPadding(0, 0, dp(8), 0)
+        })
+        val modelDescBox = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        modelDescBox.addView(TextView(this).apply {
+            this.text = "五言BPE v3·SFT（唐风名篇微调 · 纯离线版）"
+            textSize = 13f
+            typeface = Typeface.create("serif", Typeface.BOLD)
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink))
+        })
+        modelDescBox.addView(TextView(this).apply {
+            this.text = "9.2万首五言预训练 + 3,125首李杜王孟名篇二次SFT · 手机本地极速推理"
+            textSize = 11f
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink_light))
+            setPadding(0, dp(2), 0, 0)
+        })
+        modelBox.addView(modelDescBox)
+        mainCard.addView(modelBox)
+
+        // ---- 4. 双列参数调节：采样温度 + 生成首数 ----
+        val controlsGrid = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = dp(18)
+            }
+        }
+
+        // 采样温度
+        val tempHeader = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        tempHeader.addView(TextView(this).apply {
+            this.text = "采样温度"
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink))
+        })
+        tempValBadge = TextView(this).apply {
+            this.text = "0.60"
+            textSize = 12f
+            typeface = Typeface.MONOSPACE
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.cinnabar))
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_rhyme_badge)
+            setPadding(dp(8), dp(2), dp(8), dp(2))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                marginStart = dp(8)
+            }
+        }
+        tempHeader.addView(tempValBadge)
+        controlsGrid.addView(tempHeader)
+
+        // 温度滑动条
+        val seekBar = SeekBar(this).apply {
+            max = 26 // (1.50 - 0.20) / 0.05 = 26 档
+            progress = 8 // (0.60 - 0.20) / 0.05 = 8
+            setPadding(0, dp(8), 0, dp(4))
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(sb: SeekBar?, prog: Int, fromUser: Boolean) {
+                    val t = 0.20f + prog * 0.05f
+                    currentTemp = Math.round(t * 100f) / 100f
+                    tempValBadge.text = String.format(Locale.US, "%.2f", currentTemp)
+                    updateTempHint(currentTemp)
+                }
+                override fun onStartTrackingTouch(sb: SeekBar?) {}
+                override fun onStopTrackingTouch(sb: SeekBar?) {}
+            })
+        }
+        controlsGrid.addView(seekBar)
+
+        tempStyleHint = TextView(this).apply {
+            this.text = "黄金平衡（推荐，韵味自然工丽）"
+            textSize = 11f
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink_muted))
+            setPadding(0, 0, 0, dp(14))
+        }
+        controlsGrid.addView(tempStyleHint)
+
+        // 生成首数选择
+        controlsGrid.addView(createSectionLabel("生成首数", "批量采样优选对比"))
+        val pillsRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(4), 0, 0)
+        }
+        val pillList = ArrayList<TextView>()
+        val counts = listOf(1, 2, 3, 4)
+        for (c in counts) {
+            val pill = TextView(this).apply {
+                this.text = "${c}首"
+                textSize = 13f
+                gravity = Gravity.CENTER
+                setPadding(dp(16), dp(6), dp(16), dp(6))
+                isClickable = true
+                isFocusable = true
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    marginEnd = if (c < 4) dp(8) else 0
+                }
+                setOnClickListener { selectPoemCount(c) }
+            }
+            pillList.add(pill)
+            pillsRow.addView(pill)
+        }
+        countBtns = pillList
+        updatePillUI()
+        controlsGrid.addView(pillsRow)
+        mainCard.addView(controlsGrid)
+
+        // ---- 5. 生成按钮 ----
+        generateBtn = Button(this).apply {
+            this.text = "砚 墨 成 诗"
+            textSize = 17f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(Color.WHITE)
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_button)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48))
+            setOnClickListener { onGenerate() }
+        }
+        mainCard.addView(generateBtn)
+
+        // ---- 状态与进度 ----
+        statusText = TextView(this).apply {
+            this.text = "加载模型中…"
             textSize = 12f
             setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink_light))
             gravity = Gravity.CENTER
-            setPadding(0, dp(4), 0, dp(16))
-        })
-
-        // 输入框
-        root.addView(EditText(this).apply {
-            hint = "输入题目或开头，如：山高水流"
-            textSize = 17f
-            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink))
-            setHintTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink_light))
-            setPadding(dp(14), dp(10), dp(14), dp(10))
-            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_input)
-        }.also { seedInput = it })
-
-        // 按钮行
-        val btnRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(0, dp(16), 0, dp(6))
+            setPadding(0, dp(10), 0, 0)
         }
-        val btn = Button(this).apply {
-            text = "作 诗"
-            textSize = 18f
-            setTextColor(Color.WHITE)
-            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_button)
-            setOnClickListener { onGenerate() }
-        }
-        generateBtn = btn
-        btnRow.addView(btn, LinearLayout.LayoutParams(dp(180), dp(50)))
-        root.addView(btnRow)
+        mainCard.addView(statusText)
 
-        // 状态说明
-        root.addView(TextView(this).apply {
-            text = "加载模型中…"
-            textSize = 13f
-            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink_light))
-            gravity = Gravity.CENTER
-            setPadding(0, dp(8), 0, 0)
-        }.also { statusText = it })
-
-        // 进度条
-        root.addView(ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+        progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100
             progress = 0
             visibility = View.GONE
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(6)).apply {
-                topMargin = dp(8)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(4)).apply {
+                topMargin = dp(6)
             }
-        }.also { progressBar = it })
+        }
+        mainCard.addView(progressBar)
 
-        // 结果区分割标头
+        root.addView(mainCard)
+
+        // ---- 6. 诗歌成果展示区 ----
         root.addView(TextView(this).apply {
-            text = "—— 诗作 ——"
-            textSize = 14f
-            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink_light))
+            this.text = "—— 诗作佳构 ——"
+            textSize = 13f
+            letterSpacing = 0.1f
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink_muted))
             gravity = Gravity.CENTER
-            setPadding(0, dp(20), 0, dp(10))
+            setPadding(0, dp(4), 0, dp(12))
         })
 
-        // 结果诗卡容器
         resultBox = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
         }
-        root.addView(resultBox, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        root.addView(resultBox)
+
+        // ---- 7. 本次会话历史记录抽屉 ----
+        val historySection = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(16), 0, 0)
+        }
+        historyToggleBtn = TextView(this).apply {
+            this.text = "▶ 本次会话生成历史 (0)"
+            textSize = 13f
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink_secondary))
+            setPadding(dp(4), dp(8), dp(4), dp(8))
+            setOnClickListener { toggleHistory() }
+        }
+        historySection.addView(historyToggleBtn)
+
+        historyContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            setPadding(0, dp(8), 0, 0)
+        }
+        historySection.addView(historyContainer)
+        root.addView(historySection)
 
         setContentView(scroll)
 
@@ -143,8 +387,8 @@ class MainActivity : AppCompatActivity() {
                 val self = selftest()
                 ready = true
                 withContext(Dispatchers.Main) {
-                    statusText.text = if (self) "模型自检通过 ✓ 随心输入开始写诗"
-                                      else "模型自检通过（轻微浮点误差，正常可用）"
+                    statusText.text = if (self) "模型就绪 ✓ 随心输入命题挥毫成诗"
+                                      else "模型就绪（轻微浮点差，可正常作诗）"
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
@@ -155,25 +399,92 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** 与 Python 端导出的 selftest.json 比对 top20 logits，验证 Kotlin 实现正确性 */
-    private fun selftest(): Boolean {
-        val j = JSONObject(assets.open("selftest.json").bufferedReader(Charsets.UTF_8).use { it.readText() })
-        val tokens = j.getJSONArray("tokens").let { a -> IntArray(a.length()) { a.getInt(it) } }
-        val ids = j.getJSONArray("top20_ids").let { a -> IntArray(a.length()) { a.getInt(it) } }
-        val vals = j.getJSONArray("top20_logits").let { a -> DoubleArray(a.length()) { a.getDouble(it) } }
-        val logits = model.forwardFull(tokens)
-        val top = (0 until logits.size).sortedByDescending { logits[it] }.take(20)
-        // 判据：top20 id 完全一致；logits 值误差 < 1.5（float32 累积）
-        var mismatch = 0
-        var maxErr = 0.0
-        for (i in 0 until 20) {
-            if (top[i] != ids[i]) mismatch++
-            val err = Math.abs(logits[top[i]].toDouble() - vals[i])
-            if (err > maxErr) maxErr = err
-        }
-        return mismatch == 0 && maxErr < 1.5
+    override fun onDestroy() {
+        tts?.stop()
+        tts?.shutdown()
+        super.onDestroy()
     }
 
+    // ---------- 标签与首数辅助 ----------
+    private fun createSectionLabel(title: String, tip: String): LinearLayout {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = dp(6)
+            }
+            addView(TextView(this@MainActivity).apply {
+                this.text = title
+                textSize = 13f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink))
+            })
+            addView(TextView(this@MainActivity).apply {
+                this.text = tip
+                textSize = 11f
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink_muted))
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                    marginStart = dp(6)
+                }
+            })
+        }
+    }
+
+    private fun createTagChip(text: String, isTitle: Boolean): TextView {
+        return TextView(this).apply {
+            this.text = text
+            textSize = 12f
+            setPadding(dp(10), dp(4), dp(10), dp(4))
+            background = ContextCompat.getDrawable(
+                this@MainActivity,
+                if (isTitle) R.drawable.bg_chip_title else R.drawable.bg_chip
+            )
+            setTextColor(
+                ContextCompat.getColor(
+                    this@MainActivity,
+                    if (isTitle) R.color.pine_green else R.color.ink_light
+                )
+            )
+            isClickable = true
+            isFocusable = true
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                marginEnd = dp(6)
+            }
+            setOnClickListener {
+                seedInput.setText(text)
+                seedInput.setSelection(text.length)
+            }
+        }
+    }
+
+    private fun selectPoemCount(n: Int) {
+        currentN = n
+        updatePillUI()
+    }
+
+    private fun updatePillUI() {
+        for ((idx, btn) in countBtns.withIndex()) {
+            val count = idx + 1
+            if (count == currentN) {
+                btn.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_selected)
+                btn.setTextColor(Color.WHITE)
+            } else {
+                btn.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_unselected)
+                btn.setTextColor(ContextCompat.getColor(this, R.color.ink_light))
+            }
+        }
+    }
+
+    private fun updateTempHint(t: Float) {
+        tempStyleHint.text = when {
+            t < 0.40f -> "极度工整（字句规整，重复度略高）"
+            t <= 0.70f -> "黄金平衡（推荐，韵味自然工丽）"
+            t <= 1.00f -> "灵动飘逸（意象丰富，发散多变）"
+            else -> "天马行空（意象奇拔，偶有险句）"
+        }
+    }
+
+    // ---------- 核心作诗生成流程 ----------
     private fun onGenerate() {
         if (!ready) {
             Toast.makeText(this, "模型仍在加载中，请稍候…", Toast.LENGTH_SHORT).show()
@@ -181,24 +492,31 @@ class MainActivity : AppCompatActivity() {
         }
         val seed = seedInput.text.toString().trim()
         if (seed.isEmpty()) {
-            Toast.makeText(this, "请先输入题目或开头，如：山高水流", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "请先输入题目或开头意象", Toast.LENGTH_SHORT).show()
             return
         }
+
+        // 停止之前的朗读
+        tts?.stop()
+        activeRecitingBtn?.text = "🔊 吟诵"
+        activeRecitingBtn = null
 
         generateBtn.isEnabled = false
         generateBtn.alpha = 0.6f
         progressBar.visibility = View.VISIBLE
         progressBar.progress = 0
-        statusText.text = "正在构思中…"
+        statusText.text = "研墨挥毫，意象缀连中…"
         resultBox.removeAllViews()
+
+        val startTime = System.currentTimeMillis()
 
         CoroutineScope(Dispatchers.Default).launch {
             try {
                 val poems = generator.generate(
                     seed = seed,
-                    temperature = 0.6f,
-                    n = 3,
-                    candidatesK = 6,
+                    temperature = currentTemp,
+                    n = currentN,
+                    candidatesK = currentN * 3,
                     progress = { msg, pct ->
                         runOnUiThread {
                             statusText.text = msg
@@ -206,13 +524,17 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 )
+                val elapsed = ((System.currentTimeMillis() - startTime) / 1000.0)
                 withContext(Dispatchers.Main) {
                     progressBar.visibility = View.GONE
                     if (poems.isEmpty()) {
-                        statusText.text = "这轮未生成合格诗作，换个题目试试？"
+                        statusText.text = "这轮未切出合规格律诗篇，建议微调温度重试"
                     } else {
-                        statusText.text = "吟成佳作 共 ${poems.size} 首"
-                        for (p in poems) addPoemCard(p)
+                        statusText.text = String.format(Locale.CHINA, "完成 ✓ 温度 %.2f · 耗时 %.1fs · 共 %d 首", currentTemp, elapsed, poems.size)
+                        for (p in poems) {
+                            addPoemCard(p)
+                            addToHistory(p, seed)
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -229,64 +551,223 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // ---------- 渲染古风卡片（含朱砂印章与语音朗诵） ----------
     private fun addPoemCard(poemContent: String) {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(16), dp(18), dp(14))
+            setPadding(dp(18), dp(18), dp(18), dp(16))
             background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_card)
             layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                bottomMargin = dp(14)
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(16) }
+        }
+
+        val lines = poemContent.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+        var title = if (lines.isNotEmpty() && lines[0].startsWith("《")) lines[0] else "《无题》"
+        var author = "无名氏"
+        var rhymeTag = ""
+        val verseLines = ArrayList<String>()
+
+        var startIdx = 0
+        if (lines.isNotEmpty() && (lines[0].startsWith("《") || lines[0].contains("》"))) {
+            title = lines[0]
+            startIdx = 1
+            if (lines.size > 1 && (lines[1].length <= 20 || lines[1].contains("〔押")) && !lines[1].contains("，") && !lines[1].contains("。")) {
+                val authLine = lines[1]
+                val m = Regex("〔押(.+?)〕").find(authLine)
+                if (m != null) {
+                    rhymeTag = m.groupValues[1].trim()
+                    author = authLine.replace(Regex("〔押.+?〕"), "").trim()
+                } else {
+                    author = authLine
+                }
+                startIdx = 2
             }
         }
-        val lines = poemContent.split("\n").filter { it.isNotBlank() }
-        for ((i, ln) in lines.withIndex()) {
-            val tv = TextView(this)
-            tv.text = ln
-            tv.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink))
-            if (i == 0) {
-                tv.textSize = 19f
-                tv.typeface = Typeface.create("serif", Typeface.BOLD)
-                tv.gravity = Gravity.CENTER
-                tv.setPadding(0, 0, 0, dp(2))
-            } else if (ln.contains("〔押")) {
-                tv.textSize = 12f
-                tv.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.cinnabar))
-                tv.gravity = Gravity.CENTER
-                tv.setPadding(0, 0, 0, dp(8))
-            } else {
-                tv.textSize = 17f
-                tv.typeface = Typeface.create("serif", Typeface.NORMAL)
-                tv.gravity = Gravity.CENTER
-                tv.setPadding(0, dp(2), 0, dp(2))
+        for (i in startIdx until lines.size) {
+            verseLines.add(lines[i])
+        }
+        if (verseLines.isEmpty()) {
+            verseLines.addAll(lines)
+        }
+
+        // 顶行：标题居中 + 右上角朱砂红小印章
+        val topRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        val tvTitle = TextView(this).apply {
+            this.text = title
+            textSize = 19f
+            typeface = Typeface.create("serif", Typeface.BOLD)
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink))
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        topRow.addView(tvTitle)
+
+        // 朱砂小印章（墨韵雅成）
+        val sealView = TextView(this).apply {
+            this.text = "墨韵\n雅成"
+            textSize = 8f
+            typeface = Typeface.create("serif", Typeface.BOLD)
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.cinnabar))
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_seal)
+            gravity = Gravity.CENTER
+            setPadding(dp(4), dp(2), dp(4), dp(2))
+        }
+        topRow.addView(sealView)
+        card.addView(topRow)
+
+        // 作者 + 韵部徽章
+        val authorRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, dp(6), 0, dp(12))
+        }
+        authorRow.addView(TextView(this).apply {
+            this.text = "◈ $author"
+            textSize = 12f
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink_muted))
+        })
+        if (rhymeTag.isNotEmpty()) {
+            authorRow.addView(TextView(this).apply {
+                this.text = "押$rhymeTag"
+                textSize = 10f
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.pine_green))
+                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_rhyme_badge)
+                setPadding(dp(6), dp(1), dp(6), dp(1))
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                    marginStart = dp(6)
+                }
+            })
+        }
+        card.addView(authorRow)
+
+        // 诗词正文
+        for (ln in verseLines) {
+            val tv = TextView(this).apply {
+                this.text = ln
+                textSize = 17f
+                typeface = Typeface.create("serif", Typeface.NORMAL)
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink))
+                gravity = Gravity.CENTER
+                setPadding(0, dp(3), 0, dp(3))
             }
             card.addView(tv)
         }
 
-        // 复制按钮行
-        val copyRow = LinearLayout(this).apply {
+        // 底部操作区（一键复制、语音吟诵、系统分享）
+        val actionRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.END
-            setPadding(0, dp(10), 0, 0)
+            gravity = Gravity.CENTER
+            setPadding(0, dp(16), 0, 0)
         }
-        val copyBtn = TextView(this).apply {
-            this.text = "复制全诗"
-            textSize = 12f
-            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.cinnabar))
-            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_copy_button)
-            setPadding(dp(12), dp(4), dp(12), dp(4))
-            isClickable = true
-            isFocusable = true
-            setOnClickListener {
-                val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                cm.setPrimaryClip(ClipData.newPlainText("诗词", poemContent))
-                Toast.makeText(this@MainActivity, "已复制全诗到剪切板", Toast.LENGTH_SHORT).show()
+
+        // 1. 复制按钮
+        actionRow.addView(createActionButton("📋 复制") {
+            val fullText = "$title\n$author${if (rhymeTag.isNotEmpty()) "  〔押$rhymeTag〕" else ""}\n\n${verseLines.joinToString("\n")}\n\n—— 砚墨成诗 · 迷你GPT"
+            val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            cm.setPrimaryClip(ClipData.newPlainText("诗词", fullText))
+            Toast.makeText(this@MainActivity, "✓ 诗篇已复制到剪切板", Toast.LENGTH_SHORT).show()
+        })
+
+        // 2. 吟诵按钮
+        val versesText = verseLines.joinToString("，")
+        lateinit var btnRecite: TextView
+        btnRecite = createActionButton("🔊 吟诵") {
+            if (tts?.isSpeaking == true && activeRecitingBtn == btnRecite) {
+                tts?.stop()
+                btnRecite.text = "🔊 吟诵"
+                activeRecitingBtn = null
+            } else {
+                if (!isTtsReady) {
+                    Toast.makeText(this@MainActivity, "系统语音引擎尚未就绪", Toast.LENGTH_SHORT).show()
+                    return@createActionButton
+                }
+                tts?.stop()
+                activeRecitingBtn?.text = "🔊 吟诵"
+                activeRecitingBtn = btnRecite
+                btnRecite.text = "⏹ 停止"
+                tts?.speak(versesText, TextToSpeech.QUEUE_FLUSH, null, "recite_id")
             }
         }
-        copyRow.addView(copyBtn)
-        card.addView(copyRow)
+        actionRow.addView(btnRecite)
 
+        // 3. 分享按钮
+        actionRow.addView(createActionButton("📤 分享") {
+            val fullText = "$title\n$author${if (rhymeTag.isNotEmpty()) "  〔押$rhymeTag〕" else ""}\n\n${verseLines.joinToString("\n")}\n\n—— 砚墨成诗 · 迷你GPT"
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, fullText)
+            }
+            startActivity(Intent.createChooser(intent, "分享这首佳作"))
+        })
+
+        card.addView(actionRow)
         resultBox.addView(card)
+    }
+
+    private fun createActionButton(label: String, onClick: () -> Unit): TextView {
+        return TextView(this).apply {
+            this.text = label
+            textSize = 12f
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink_light))
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_copy_button)
+            setPadding(dp(12), dp(5), dp(12), dp(5))
+            isClickable = true
+            isFocusable = true
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                marginStart = dp(4)
+                marginEnd = dp(4)
+            }
+            setOnClickListener { onClick() }
+        }
+    }
+
+    // ---------- 会话历史记录 ----------
+    private fun addToHistory(poem: String, seed: String) {
+        val firstLine = poem.split("\n").firstOrNull { it.isNotBlank() } ?: "《无题》"
+        historyList.add(0, Pair(firstLine, poem))
+        historyToggleBtn.text = "▼ 本次会话生成历史 (${historyList.size})"
+        updateHistoryContainer()
+    }
+
+    private fun toggleHistory() {
+        val isOpen = historyContainer.visibility == View.VISIBLE
+        historyContainer.visibility = if (isOpen) View.GONE else View.VISIBLE
+        historyToggleBtn.text = if (isOpen) "▶ 本次会话生成历史 (${historyList.size})" else "▼ 本次会话生成历史 (${historyList.size})"
+    }
+
+    private fun updateHistoryContainer() {
+        historyContainer.removeAllViews()
+        for ((title, _) in historyList.take(15)) {
+            historyContainer.addView(TextView(this).apply {
+                this.text = "• $title"
+                textSize = 12f
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink_muted))
+                setPadding(dp(6), dp(4), dp(6), dp(4))
+            })
+        }
+    }
+
+    /** 验证 Kotlin 推理算子与 Python 导出的 logits 一致性 */
+    private fun selftest(): Boolean {
+        val j = JSONObject(assets.open("selftest.json").bufferedReader(Charsets.UTF_8).use { it.readText() })
+        val tokens = j.getJSONArray("tokens").let { a -> IntArray(a.length()) { a.getInt(it) } }
+        val ids = j.getJSONArray("top20_ids").let { a -> IntArray(a.length()) { a.getInt(it) } }
+        val vals = j.getJSONArray("top20_logits").let { a -> DoubleArray(a.length()) { a.getDouble(it) } }
+        val logits = model.forwardFull(tokens)
+        val top = (0 until logits.size).sortedByDescending { logits[it] }.take(20)
+        var mismatch = 0
+        var maxErr = 0.0
+        for (i in 0 until 20) {
+            if (top[i] != ids[i]) mismatch++
+            val err = Math.abs(logits[top[i]].toDouble() - vals[i])
+            if (err > maxErr) maxErr = err
+        }
+        return mismatch == 0 && maxErr < 1.5
     }
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()

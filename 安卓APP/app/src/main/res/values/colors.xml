@@ -1,12 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 国风配色：宣纸米白 / 墨色 / 朱砂红 -->
-    <color name="paper">#F6F0E3</color>
+    <!-- 国风典雅配色：宣纸米白 / 墨色 / 朱砂红 / 松石黛绿 -->
+    <color name="paper">#F5F2E9</color>
     <color name="paper_dark">#EDE4CF</color>
-    <color name="ink">#2E2A26</color>
-    <color name="ink_light">#6E675E</color>
+    <color name="card_bg">#FDFBF7</color>
+    <color name="card_subtle">#F9F5EC</color>
+    <color name="ink">#262421</color>
+    <color name="ink_light">#5E5951</color>
+    <color name="ink_muted">#8C857B</color>
     <color name="cinnabar">#A63D2F</color>
     <color name="cinnabar_dark">#8A3226</color>
+    <color name="vermilion_light">#FAECEA</color>
+    <color name="pine_green">#1A5649</color>
+    <color name="pine_light">#EEF6F4</color>
     <color name="gold">#C9A227</color>
+    <color name="border">#E6DFCE</color>
+    <color name="border_strong">#D4C8B2</color>
     <color name="white">#FFFFFF</color>
 </resources>

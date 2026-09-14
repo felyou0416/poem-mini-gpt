@@ -23,91 +23,100 @@ class PoemGenerator(private val model: MiniGPT, private val judge: RhymeJudge) {
     private fun decodeV3(tokens: List<Int>): String {
         val sb = StringBuilder()
         for (t in tokens) {
-            val ch = model.itos[t]
+            val ch = if (t in model.itos.indices) model.itos[t] else "□"
             if (ch == "<|eos|>") break
             if (ch == "<|bos|>") continue
             if (ch == "<|title|>" || ch == "<|author|>") sb.append('\n')
-            else if (ch == "<|body|>") { /* 空 */ }
+            else if (ch == "<|body|>") { /* 标记位，不输出字符 */ }
             else if (ch == "<|unk|>") sb.append('□')
             else sb.append(ch)
         }
         return sb.toString().trim()
     }
 
-    /** 采样一个完整诗块（复刻 _sample_block） */
-    private fun sampleBlock(seed: String, temperature: Float, progress: (Int) -> Unit): String {
-        val maxTokens = 140
+    /** 采样一个完整诗块（包含规范的 Prefix Prefill 预热，遇 <|eos|> 停机） */
+    private fun sampleBlock(seed: String, temperature: Float): String {
+        val maxNewTokens = 110
         val cache = MiniGPT.KvCache(model.nLayer, model.nHead, model.headDim)
         val tokens = ArrayList<Int>()
         tokens.add(bos)
-        for (c in "《$seed》") tokens.add(model.stoi[c.toString()] ?: unk)
+
+        // 格式化题目：剥除用户多输的书名号，保证格式规范为《xxx》
+        val rawSeed = seed.trim().removePrefix("《").removeSuffix("》")
+        val fullTitle = "《$rawSeed》"
+        for (c in fullTitle) {
+            tokens.add(model.stoi[c.toString()] ?: unk)
+        }
         tokens.add(titleTok)
 
-        for (step in 0 until maxTokens) {
-            val tok = tokens[tokens.size - 1]
-            val logits = model.forwardStep(tok, tokens.size - 1, cache)
+        // 核心修复：将完整的前缀 tokens 一次性推入 KV-Cache 进行注意力预热
+        var logits = FloatArray(model.vocabSize)
+        for (pos in tokens.indices) {
+            logits = model.forwardStep(tokens[pos], pos, cache)
+        }
+
+        // 自回归逐步采样后续内容（作者 + 正文）
+        for (step in 0 until maxNewTokens) {
+            if (tokens.size >= model.blockSize) break
             val nxt = model.sample(logits, temperature, 60, rnd)
             tokens.add(nxt)
-            if (model.itos[nxt] == "<|eos|>") break
-            if (step % 10 == 0) progress(step)
+            if (nxt in model.itos.indices && model.itos[nxt] == "<|eos|>") break
+            logits = model.forwardStep(nxt, tokens.size - 1, cache)
         }
         return decodeV3(tokens)
     }
 
     /**
-     * 生成 n 首诗。
-     * candidatesK: 候选数（手机端默认 6，比 PC 端 12 少，保速度）
+     * 生成 n 首诗（带细粒度进度反馈与平水韵优选重排）
      */
     fun generate(seed: String, temperature: Float, n: Int,
-                 candidatesK: Int = 6, progress: (String) -> Unit = {}): List<String> {
-        val seedClean = seed.trim()
+                 candidatesK: Int = 6, progress: (String, Int) -> Unit = { _, _ -> }): List<String> {
+        val rawSeed = seed.trim().removePrefix("《").removeSuffix("》")
+        if (rawSeed.isEmpty()) return emptyList()
+
         val candidates = ArrayList<String>()
-        val targetK = maxOf(n * 4, candidatesK)
+        val targetK = maxOf(n * 2, candidatesK)
+        val maxRounds = targetK + 4
         var round = 0
-        while (candidates.size < targetK && round < 6) {
+
+        while (candidates.size < targetK && round < maxRounds) {
             round++
-            val text = sampleBlock(seedClean, temperature) { progress("第 $round 轮采样中…") }
-            val block = text
+            val pct = (candidates.size * 80 / targetK).coerceIn(5, 80)
+            progress("正在构思第 $round 轮候选… (${candidates.size}/$targetK)", pct)
+            val block = sampleBlock(rawSeed, temperature)
             if (block.split("\n").firstOrNull()?.startsWith("《") == true) {
                 candidates.add(block)
             }
         }
 
+        progress("正在进行平水韵格律评估与排序…", 90)
+
         // 去重
         val unique = LinkedHashMap<String, Unit>()
         for (b in candidates) unique.putIfAbsent(b, Unit)
 
-        // 评分排序
+        // 符号化平水韵评分排序
         val scored = unique.keys.map { b ->
             val ev = judge.scorePoem(b)
             Triple(ev.score, ev, b)
         }.sortedByDescending { it.first }
 
-        // 组装：作者行后附〔押X韵〕
+        // 组装：在作者行后附〔押X韵〕
         val result = ArrayList<String>()
-        for ((score, ev, raw) in scored.take(n)) {
-            val lines = raw.split("\n")
-            var authorIndex = -1
-            for ((i, ln) in lines.withIndex()) {
-                if (i == 0) continue
-                val s = ln.trim()
-                if (authorIndex < 0 && s.isNotEmpty() && !judge.isTitleLine(s) &&
-                    s.none { it in judge.linePunct } && s.length in 2..4
-                ) {
-                    authorIndex = i
-                }
-            }
-            if (authorIndex > 0 && ev.rhyme != null) {
+        for ((_, ev, raw) in scored.take(n)) {
+            val lines = raw.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+            if (lines.size >= 2 && ev.rhyme != null) {
                 val out = ArrayList<String>()
                 for ((i, ln) in lines.withIndex()) {
-                    if (i == authorIndex) out.add(ln.trimEnd() + "  〔押${ev.rhyme}〕")
+                    if (i == 1) out.add("$ln  〔押${ev.rhyme}〕")
                     else out.add(ln)
                 }
-                result.add(out.joinToString("\n").trim())
+                result.add(out.joinToString("\n"))
             } else {
                 result.add(raw)
             }
         }
+        progress("创作完成", 100)
         return result
     }
 }

@@ -32,6 +32,10 @@ android {
     lint {
         abortOnError = false
     }
+
+    androidResources {
+        noCompress += ["bin", "json"]
+    }
 }
 
 dependencies {

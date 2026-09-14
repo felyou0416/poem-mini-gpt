@@ -26,11 +26,23 @@ class RhymeJudge(private val ctx: Context) {
     fun load() {
         val j = JSONObject(ctx.assets.open("rhyme.json").bufferedReader(Charsets.UTF_8).use { it.readText() })
         rhymeOrder = j.getJSONArray("order").let { a -> (0 until a.length()).map { a.getString(it) } }
-        rhymeChars = rhymeOrder.associateWith { r -> j.getJSONObject("chars").getString(r) }
+        val charsObj = j.getJSONObject("chars")
         charRhymes.clear()
-        for (r in rhymeOrder) for (c in rhymeChars[r]!!) {
-            charRhymes.getOrPut(c) { ArrayList() }.add(r)
+        val charsMap = HashMap<String, String>()
+        for (r in rhymeOrder) {
+            val arr = charsObj.optJSONArray(r) ?: continue
+            val sb = StringBuilder(arr.length())
+            for (i in 0 until arr.length()) {
+                val str = arr.optString(i)
+                if (str.isNotEmpty()) {
+                    val c = str[0]
+                    sb.append(c)
+                    charRhymes.getOrPut(c) { ArrayList() }.add(r)
+                }
+            }
+            charsMap[r] = sb.toString()
         }
+        rhymeChars = charsMap
     }
 
     fun rhymeOf(ch: Char): List<String> = charRhymes[ch] ?: emptyList()
@@ -89,14 +101,14 @@ class RhymeJudge(private val ctx: Context) {
 
         for (ln in lines) if (ln.length != 5) { short++; score -= 15 }
 
-        if (lines.size >= 4) {
+        if (lines.size >= 4 && lines[1].isNotEmpty() && lines[3].isNotEmpty()) {
             val t2 = lines[1].last(); val t4 = lines[3].last()
             val common = rhymeOf(t2).toSet() intersect rhymeOf(t4).toSet()
             if (common.isNotEmpty()) {
                 secondFourOk = true
                 rhyme = common.first()
                 score += 40
-                if (rhyme in rhymeOf(lines[0].last())) { titleInRhyme = true; score += 10 }
+                if (lines[0].isNotEmpty() && rhyme in rhymeOf(lines[0].last())) { titleInRhyme = true; score += 10 }
             } else {
                 score -= 40
             }

@@ -164,7 +164,8 @@ class MiniGPT(private val ctx: Context) {
 
             // RoPE（half-split）
             val d = headDim / 2
-            val cos = cosT[pos]; val sin = sinT[pos]
+            val p = Math.min(pos, blockSize - 1)
+            val cos = cosT[p]; val sin = sinT[p]
             for (h in 0 until nHead) {
                 val qh = FloatArray(headDim); val kh = FloatArray(headDim)
                 for (i in 0 until headDim) { qh[i] = q[h * headDim + i]; kh[i] = k[h * headDim + i] }
@@ -250,32 +251,68 @@ class MiniGPT(private val ctx: Context) {
     }
 
     // ================= 采样 =================
-    /** 复刻 poem.py sample_next：logits/温度 → top_k 截断 → softmax → 多项式采样 */
+    /**
+     * 高性能 Top-K 多项式采样（消除大量对象装箱，防止 Android GC 卡顿）
+     */
     fun sample(logits: FloatArray, temperature: Float, topK: Int, rnd: java.util.Random): Int {
         val temp = Math.max(temperature, 1e-6f)
-        val scaled = FloatArray(logits.size) { logits[it] / temp }
-        // top-k
-        val k = Math.min(topK, scaled.size)
-        val top = scaled.indices.sortedByDescending { scaled[it] }.take(k)
-        val th = scaled[top.last()]
-        for (i in scaled.indices) if (scaled[i] < th) scaled[i] = Float.NEGATIVE_INFINITY
-        var anyFinite = false
-        for (s in scaled) if (s.isFinite()) { anyFinite = true; break }
-        if (!anyFinite) scaled.fill(0f)
-        // softmax
+        val n = logits.size
+        val scaled = FloatArray(n) { logits[it] / temp }
+
+        val k = Math.min(topK, n)
+        // 快速寻找第 k 大的阈值 th，避免全量 4006 个对象装箱排序
+        val topVals = FloatArray(k) { Float.NEGATIVE_INFINITY }
+        var minTopIdx = 0
+        var minTopVal = Float.NEGATIVE_INFINITY
+
+        for (i in 0 until n) {
+            val v = scaled[i]
+            if (v > minTopVal) {
+                topVals[minTopIdx] = v
+                minTopVal = topVals[0]
+                minTopIdx = 0
+                for (j in 1 until k) {
+                    if (topVals[j] < minTopVal) {
+                        minTopVal = topVals[j]
+                        minTopIdx = j
+                    }
+                }
+            }
+        }
+        val th = minTopVal
+
         var maxS = Float.NEGATIVE_INFINITY
-        for (s in scaled) if (s.isFinite() && s > maxS) maxS = s
+        for (i in 0 until n) {
+            if (scaled[i] >= th && scaled[i].isFinite() && scaled[i] > maxS) {
+                maxS = scaled[i]
+            }
+        }
+
         var sum = 0.0
-        for (i in scaled.indices) {
-            scaled[i] = if (scaled[i].isFinite()) Math.exp((scaled[i] - maxS).toDouble()).toFloat() else 0f
-            sum += scaled[i]
+        val probs = FloatArray(n)
+        for (i in 0 until n) {
+            if (scaled[i] >= th && scaled[i].isFinite()) {
+                val p = Math.exp((scaled[i] - maxS).toDouble()).toFloat()
+                probs[i] = p
+                sum += p
+            }
         }
+
+        if (sum <= 0.0) {
+            return rnd.nextInt(n)
+        }
+
         var r = rnd.nextDouble() * sum
-        for (i in scaled.indices) {
-            r -= scaled[i]
-            if (r <= 0) return i
+        for (i in 0 until n) {
+            if (probs[i] > 0f) {
+                r -= probs[i]
+                if (r <= 0) return i
+            }
         }
-        return scaled.indices.last { scaled[it] > 0f }
+        for (i in (n - 1) downTo 0) {
+            if (probs[i] > 0f) return i
+        }
+        return 0
     }
 
     private fun readAsset(name: String): String =

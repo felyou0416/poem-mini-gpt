@@ -456,13 +456,36 @@
   .poem-content {
     font-family: "KaiTi", "STKaiti", "Biaukai", "Songti SC", serif;
     font-size: 19px;
-    line-height: 2.15;
+    line-height: 2.2;
     color: #1f1d1a;
-    letter-spacing: 3px;
+    letter-spacing: 2px;
     margin: 12px 0 16px;
-    white-space: pre-wrap;
-    word-break: break-word;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .couplet-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 28px;
+    width: 100%;
+  }
+
+  .couplet-col.left {
+    text-align: right;
+    flex: 1;
+  }
+
+  .couplet-col.right {
+    text-align: left;
+    flex: 1;
+  }
+
+  .couplet-col.center {
     text-align: center;
+    flex: 1;
   }
 
   /* 卡片底部操作按钮栏 */
@@ -1134,30 +1157,42 @@ function exportPoemCard(idx) {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
 
-  // 1. 数据整理与诗句分行（无论原始数据是否含换行，均按句读标点逐句切分，彻底杜绝单行溢出）
-  let lines = [];
+  // 1. 数据整理与诗句分句
+  let segs = [];
   const rawLines = (p.verses || "").split("\n").map(l => l.trim()).filter(Boolean);
   rawLines.forEach(ln => {
-    const segs = ln.match(/[^，。！？；\n]+[，。！？；]?/g);
-    if (segs && segs.length > 1) {
-      lines.push(...segs.map(s => s.trim()).filter(Boolean));
+    const matched = ln.match(/[^，。！？；\n]+[，。！？；]?/g);
+    if (matched && matched.length > 0) {
+      segs.push(...matched.map(s => s.trim()).filter(Boolean));
     } else if (ln.trim()) {
-      lines.push(ln.trim());
+      segs.push(ln.trim());
     }
   });
-  if (lines.length === 0 && p.verses) {
-    const segs = p.verses.match(/[^，。！？；\n]+[，。！？；]?/g);
-    lines = segs ? segs.map(s => s.trim()).filter(Boolean) : [p.verses.trim()];
+  if (segs.length === 0 && p.verses) {
+    const matched = p.verses.match(/[^，。！？；\n]+[，。！？；]?/g);
+    segs = matched ? matched.map(s => s.trim()).filter(Boolean) : [p.verses.trim()];
   }
-  const width = 500;
 
-  // 2. 自适应动态高度计算（精准留白黄金比例，杜绝死板大片空白）
+  // 2. 配对成两列对仗联（上联在左列，下联在右列，律诗4联对列，绝句2联对列）
+  const couplets = [];
+  for (let i = 0; i < segs.length; i += 2) {
+    if (i + 1 < segs.length) {
+      couplets.push([segs[i], segs[i + 1]]);
+    } else {
+      couplets.push([segs[i], ""]);
+    }
+  }
+
+  // 宽度设为 540，双列并排大气疏朗
+  const width = 540;
+
+  // 3. 自适应高度（以对联行数为基准，8句诗为4联，彻底告别单列过长）
   const topPad = 48;
   const titleH = 34;
   const authorH = 28;
   const dividerH = 22;
-  const lineH = 40;
-  const versesH = lines.length * lineH;
+  const rowH = 44;
+  const versesH = couplets.length * rowH;
   const footerH = 46;
   const bottomPad = 32;
 
@@ -1340,29 +1375,30 @@ function exportPoemCard(idx) {
   ctx.fillText("◈", width / 2, dividerY);
   curY += dividerH;
 
-  // 10. 诗词正文 (楷体宋韵，雅致居中，疏朗字距)
+  // 10. 诗词正文：两列对仗式排版（上联在左列，下联在右列，中轴对称呼应）
+  const colGap = 32; // 两列之间的优美间距
   ctx.fillStyle = "#1C1A18";
   ctx.font = "21px 'STKaiti', 'KaiTi', 'Songti SC', serif";
-  ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   if ('letterSpacing' in ctx) {
-    ctx.letterSpacing = "3px";
+    ctx.letterSpacing = "2px";
   }
 
-  lines.forEach(line => {
-    // 文本宽度溢出保护：若单行字数过长，自动等比微调字号
-    const maxW = width - 80;
-    const measuredW = ctx.measureText(line).width;
-    if (measuredW > maxW) {
-      ctx.save();
-      const scaleFactor = Math.max(0.65, maxW / measuredW);
-      ctx.font = `${Math.floor(21 * scaleFactor)}px 'STKaiti', 'KaiTi', 'Songti SC', serif`;
-      ctx.fillText(line, width / 2, curY + 16);
-      ctx.restore();
+  couplets.forEach(([leftLine, rightLine]) => {
+    const rowMidY = curY + rowH / 2;
+    if (rightLine) {
+      // 上联：右对齐到中轴偏左
+      ctx.textAlign = "right";
+      ctx.fillText(leftLine, width / 2 - colGap / 2, rowMidY);
+      // 下联：左对齐从中轴偏右
+      ctx.textAlign = "left";
+      ctx.fillText(rightLine, width / 2 + colGap / 2, rowMidY);
     } else {
-      ctx.fillText(line, width / 2, curY + 16);
+      // 奇数独句居中
+      ctx.textAlign = "center";
+      ctx.fillText(leftLine, width / 2, rowMidY);
     }
-    curY += lineH;
+    curY += rowH;
   });
 
   if ('letterSpacing' in ctx) {
@@ -1390,6 +1426,43 @@ function exportPoemCard(idx) {
   showToast("✓ 诗词精美图卡已导出");
 }
 
+// ---------- 辅助：将正文格式化为两列对仗联 HTML ----------
+function formatVersesHTML(versesStr) {
+  let segs = [];
+  const rawLines = (versesStr || "").split("\n").map(l => l.trim()).filter(Boolean);
+  rawLines.forEach(ln => {
+    const matched = ln.match(/[^，。！？；\n]+[，。！？；]?/g);
+    if (matched && matched.length > 0) {
+      segs.push(...matched.map(s => s.trim()).filter(Boolean));
+    } else if (ln.trim()) {
+      segs.push(ln.trim());
+    }
+  });
+  if (segs.length === 0 && versesStr) {
+    const matched = versesStr.match(/[^，。！？；\n]+[，。！？；]?/g);
+    segs = matched ? matched.map(s => s.trim()).filter(Boolean) : [versesStr.trim()];
+  }
+
+  const rows = [];
+  for (let i = 0; i < segs.length; i += 2) {
+    if (i + 1 < segs.length) {
+      rows.push(`
+        <div class="couplet-row">
+          <span class="couplet-col left">${escapeHtml(segs[i])}</span>
+          <span class="couplet-col right">${escapeHtml(segs[i + 1])}</span>
+        </div>
+      `);
+    } else {
+      rows.push(`
+        <div class="couplet-row">
+          <span class="couplet-col center">${escapeHtml(segs[i])}</span>
+        </div>
+      `);
+    }
+  }
+  return rows.join("");
+}
+
 // ---------- 诗歌渲染（生成 / 历史切换共用） ----------
 function renderPoemCards(poems) {
   const resultsArea = document.getElementById("results-area");
@@ -1404,7 +1477,7 @@ function renderPoemCards(poems) {
         ${p.rhymeTag ? `<span class="rhyme-badge">押${escapeHtml(p.rhymeTag)}</span>` : ""}
       </div>
       <div class="poem-divider"></div>
-      <div class="poem-content">${escapeHtml(p.verses)}</div>
+      <div class="poem-content">${formatVersesHTML(p.verses)}</div>
       <div class="card-actions">
         <button class="action-btn" onclick="copyPoem(${idx})">
           <span>📋</span> 复制

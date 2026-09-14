@@ -103,7 +103,7 @@ class MainActivity : AppCompatActivity() {
 
         // 徽章
         headerBox.addView(TextView(this).apply {
-            this.text = "✦ 迷你 GPT 诗词引擎"
+            this.text = "✦ poem · 迷你 GPT 诗词引擎"
             textSize = 11f
             setTextColor(ContextCompat.getColor(this@MainActivity, R.color.pine_green))
             background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_rhyme_badge)
@@ -113,7 +113,7 @@ class MainActivity : AppCompatActivity() {
 
         // 大标题
         headerBox.addView(TextView(this).apply {
-            this.text = "砚 墨 成 诗"
+            this.text = "poem · 砚墨成诗"
             textSize = 27f
             setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ink))
             typeface = Typeface.create("serif", Typeface.BOLD)
@@ -667,7 +667,7 @@ class MainActivity : AppCompatActivity() {
 
         // 1. 复制按钮
         actionRow.addView(createActionButton("📋 复制") {
-            val fullText = "$title\n$author${if (rhymeTag.isNotEmpty()) "  〔押$rhymeTag〕" else ""}\n\n${verseLines.joinToString("\n")}\n\n—— 砚墨成诗 · 迷你GPT"
+            val fullText = "$title\n$author${if (rhymeTag.isNotEmpty()) "  〔押$rhymeTag〕" else ""}\n\n${verseLines.joinToString("\n")}\n\n—— poem · 砚墨成诗"
             val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             cm.setPrimaryClip(ClipData.newPlainText("诗词", fullText))
             Toast.makeText(this@MainActivity, "✓ 诗篇已复制到剪切板", Toast.LENGTH_SHORT).show()
@@ -697,7 +697,7 @@ class MainActivity : AppCompatActivity() {
 
         // 3. 分享按钮
         actionRow.addView(createActionButton("📤 分享") {
-            val fullText = "$title\n$author${if (rhymeTag.isNotEmpty()) "  〔押$rhymeTag〕" else ""}\n\n${verseLines.joinToString("\n")}\n\n—— 砚墨成诗 · 迷你GPT"
+            val fullText = "$title\n$author${if (rhymeTag.isNotEmpty()) "  〔押$rhymeTag〕" else ""}\n\n${verseLines.joinToString("\n")}\n\n—— poem · 砚墨成诗"
             val intent = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
                 putExtra(Intent.EXTRA_TEXT, fullText)

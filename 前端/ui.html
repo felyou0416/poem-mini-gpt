@@ -422,6 +422,20 @@
     font-weight: 600;
   }
 
+  /* 风格标签（角落小字：原预测作者名风格） */
+  .style-tag {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10px;
+    color: #a09a8e;
+    border: 1px dashed rgba(160, 154, 142, 0.55);
+    border-radius: 8px;
+    padding: 0 6px;
+    margin-left: 6px;
+    letter-spacing: 0.5px;
+    opacity: 0.85;
+  }
+
   .poem-content {
     font-family: "KaiTi", "STKaiti", "Biaukai", "Songti SC", serif;
     font-size: 18px;
@@ -558,6 +572,44 @@
 
   .history-item:hover {
     background: var(--paper-card-subtle);
+  }
+
+  /* 桌面宽屏：历史记录固定为右侧边栏 */
+  @media (min-width: 980px) {
+    .container {
+      margin-right: 330px;
+    }
+    .history-toggle-wrap {
+      position: fixed;
+      right: 24px;
+      top: 20px;
+      margin-top: 0;
+      text-align: right;
+      z-index: 60;
+    }
+    .history-section {
+      position: fixed;
+      right: 0;
+      top: 56px;
+      bottom: 0;
+      width: 300px;
+      margin-top: 0;
+      border-top: none;
+      border-left: 1px solid var(--line-border);
+      padding: 8px 14px 24px;
+      overflow-y: auto;
+      background: var(--paper);
+      box-shadow: -4px 0 16px rgba(0, 0, 0, 0.04);
+    }
+    .history-item {
+      cursor: pointer;
+      border-radius: 8px;
+      transition: background 0.15s ease;
+    }
+    .history-item.active {
+      background: var(--paper-card-subtle);
+      box-shadow: inset 2px 0 0 var(--pine-green);
+    }
   }
 </style>
 </head>
@@ -802,7 +854,7 @@ function parsePoemBlock(rawText) {
     title = lines[0];
     startIdx = 1;
     if (lines.length > 1 && (lines[1].length <= 24 || lines[1].includes("〔押")) && !lines[1].includes("，") && !lines[1].includes("。")) {
-      // 兼容带平水韵标签的作者行：如 "李白  〔押七尤〕"
+      // 兼容带平水韵标签与风格标签的作者行：如 "佚名（刘禹锡风格）  〔押七尤〕"
       const m = lines[1].match(/〔押(.+?)〕/);
       if (m) {
         rhymeTag = m[1].trim();
@@ -814,12 +866,20 @@ function parsePoemBlock(rawText) {
     }
   }
 
+  // 提取风格标签：作者行里的"（X风格）" → 角落小字标签，作者主体显示"佚名"
+  let styleTag = "";
+  const sm = author.match(/（(.+?)风格）$/);
+  if (sm) {
+    styleTag = sm[1];
+    author = author.replace(/（.+?风格）$/, "").trim() || "无名氏";
+  }
+
   verses = lines.slice(startIdx);
   if (verses.length === 0 && lines.length > 0) {
     verses = lines;
   }
 
-  return { title, author, rhymeTag, verses: verses.join("\n"), raw: rawText };
+  return { title, author, styleTag, rhymeTag, verses: verses.join("\n"), raw: rawText };
 }
 
 // ---------- 核心生成请求 ----------
@@ -881,34 +941,17 @@ async function generatePoems() {
       return;
     }
 
-    // 渲染诗歌卡片
-    resultsArea.innerHTML = poems.map((p, idx) => `
-      <div class="poem-card" id="poem-card-${idx}">
-        <div class="seal">墨韵<br>雅成</div>
-        <div class="poem-head">${escapeHtml(p.title)}</div>
-        <div class="poem-author">${escapeHtml(p.author)}${p.rhymeTag ? `<span class="rhyme-badge">押${escapeHtml(p.rhymeTag)}</span>` : ""}</div>
-        <div class="poem-content">${escapeHtml(p.verses)}</div>
-        <div class="card-actions">
-          <button class="action-btn" onclick="copyPoem(${idx})">
-            <span>📋</span> 复制
-          </button>
-          <button class="action-btn" onclick="recitePoem(${idx})">
-            <span id="recite-icon-${idx}">🔊</span> 吟诵
-          </button>
-          <button class="action-btn" onclick="exportPoemCard(${idx})">
-            <span>🖼️</span> 导出诗卡
-          </button>
-        </div>
-      </div>
-    `).join("");
+    // 渲染诗歌卡片（生成结果 / 历史切换共用）
+    renderPoemCards(poems);
 
     metaSummary.textContent = `${data.model_name || modelId} · 温度 ${data.temperature} · 耗时 ${elapsed}s · 共 ${poems.length} 首`;
 
-    // 记录到会话历史
+    // 记录到本地历史（localStorage 持久化）
     poems.forEach(p => {
       historyRecords.unshift({
         title: p.title,
         author: p.author,
+        styleTag: p.styleTag || "",
         rhymeTag: p.rhymeTag || "",
         verses: p.verses,
         seed: seed,
@@ -916,6 +959,8 @@ async function generatePoems() {
         time: new Date().toLocaleTimeString()
       });
     });
+    if (historyRecords.length > 60) historyRecords = historyRecords.slice(0, 60);
+    persistHistory();
     updateHistoryUI();
 
     // 缓存到全局以便操作
@@ -935,7 +980,7 @@ async function generatePoems() {
 function copyPoem(idx) {
   const p = window._CURRENT_POEMS[idx];
   if (!p) return;
-  const authorLine = p.author + (p.rhymeTag ? "  〔押" + p.rhymeTag + "〕" : "");
+  const authorLine = p.author + (p.styleTag ? "（" + p.styleTag + "风格）" : "") + (p.rhymeTag ? "  〔押" + p.rhymeTag + "〕" : "");
   const fullText = `${p.title}\n${authorLine}\n\n${p.verses}\n\n—— 迷你GPT·砚墨成诗`;
   navigator.clipboard.writeText(fullText).then(() => {
     showToast("✓ 诗文已复制到剪贴板");
@@ -978,7 +1023,7 @@ function recitePoem(idx) {
   if (iconEl) iconEl.textContent = "⏹";
 
   // 格式化朗读文本，增加诗词朗读停顿
-  const speechText = `${p.title}。${p.author}。${p.verses.replace(/\n/g, "，")}`;
+  const speechText = `${p.title}。${p.author}${p.styleTag ? "（" + p.styleTag + "风格）" : ""}。${p.verses.replace(/\n/g, "，")}`;
   const utterance = new SpeechSynthesisUtterance(speechText);
   utterance.lang = "zh-CN";
   utterance.rate = 0.82; // 稍慢节奏更有古意
@@ -1039,7 +1084,7 @@ function exportPoemCard(idx) {
   // 4. 作者
   ctx.fillStyle = "#7E7567";
   ctx.font = "14px 'PingFang SC', 'Microsoft YaHei', sans-serif";
-  ctx.fillText("◈ " + p.author + (p.rhymeTag ? " 〔押" + p.rhymeTag + "〕" : ""), width / 2, 108);
+  ctx.fillText("◈ " + p.author + (p.styleTag ? "（" + p.styleTag + "风格）" : "") + (p.rhymeTag ? " 〔押" + p.rhymeTag + "〕" : ""), width / 2, 108);
 
   // 5. 装饰横线
   ctx.strokeStyle = "#E4DAC8";
@@ -1089,23 +1134,80 @@ function exportPoemCard(idx) {
   showToast("✓ 诗词精美图卡已导出");
 }
 
-// ---------- 历史记录交互 ----------
+// ---------- 诗歌渲染（生成 / 历史切换共用） ----------
+function renderPoemCards(poems) {
+  const resultsArea = document.getElementById("results-area");
+  window._CURRENT_POEMS = poems;
+  resultsArea.innerHTML = poems.map((p, idx) => `
+    <div class="poem-card" id="poem-card-${idx}">
+      <div class="seal">墨韵<br>雅成</div>
+      <div class="poem-head">${escapeHtml(p.title)}</div>
+      <div class="poem-author">${escapeHtml(p.author)}${p.styleTag ? `<span class="style-tag">${escapeHtml(p.styleTag)}风格</span>` : ""}${p.rhymeTag ? `<span class="rhyme-badge">押${escapeHtml(p.rhymeTag)}</span>` : ""}</div>
+      <div class="poem-content">${escapeHtml(p.verses)}</div>
+      <div class="card-actions">
+        <button class="action-btn" onclick="copyPoem(${idx})">
+          <span>📋</span> 复制
+        </button>
+        <button class="action-btn" onclick="recitePoem(${idx})">
+          <span id="recite-icon-${idx}">🔊</span> 吟诵
+        </button>
+        <button class="action-btn" onclick="exportPoemCard(${idx})">
+          <span>🖼️</span> 导出诗卡
+        </button>
+      </div>
+    </div>
+  `).join("");
+}
+
+// ---------- 历史记录交互（侧边栏切换 + 本地持久化） ----------
+const HISTORY_KEY = "poem_history_v1";
+
+function persistHistory() {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(historyRecords));
+  } catch (e) { /* 存储满等异常忽略 */ }
+}
+
 function toggleHistory() {
   const section = document.getElementById("history-section");
   const arrow = document.getElementById("history-arrow");
   const isOpen = section.classList.toggle("open");
   arrow.textContent = isOpen ? "▼" : "▶";
+  try { localStorage.setItem("poem_history_open", isOpen ? "1" : "0"); } catch (e) {}
 }
 
 function updateHistoryUI() {
   document.getElementById("history-count").textContent = historyRecords.length;
   const list = document.getElementById("history-list");
-  list.innerHTML = historyRecords.slice(0, 10).map((r, i) => `
-    <div class="history-item">
-      <span><strong>${escapeHtml(r.title)}</strong> · ${escapeHtml(r.author)}${r.rhymeTag ? ` <em style="color:var(--pine-green);font-style:normal;font-size:10px;">〔押${escapeHtml(r.rhymeTag)}〕</em>` : ""}（${escapeHtml(r.seed)}）</span>
+  list.innerHTML = historyRecords.slice(0, 20).map((r, i) => `
+    <div class="history-item" id="history-item-${i}" onclick="showHistoryPoem(${i})">
+      <span><strong>${escapeHtml(r.title)}</strong> · ${escapeHtml(r.author)}${r.styleTag ? ` <em style="color:#a09a8e;font-style:normal;font-size:10px;">${escapeHtml(r.styleTag)}风格</em>` : ""}${r.rhymeTag ? ` <em style="color:var(--pine-green);font-style:normal;font-size:10px;">〔押${escapeHtml(r.rhymeTag)}〕</em>` : ""}（${escapeHtml(r.seed)}）</span>
       <span style="font-size:11px; color:#a09a8e;">${r.time}</span>
     </div>
   `).join("");
+  // 高亮当前切换项
+  const cur = document.querySelectorAll(".history-item");
+  cur.forEach(el => el.classList.remove("active"));
+  if (window._HISTORY_ACTIVE != null) {
+    const el = document.getElementById("history-item-" + window._HISTORY_ACTIVE);
+    if (el) el.classList.add("active");
+  }
+}
+
+/** 点击侧边栏历史记录 → 切换显示该诗 */
+function showHistoryPoem(i) {
+  const r = historyRecords[i];
+  if (!r) return;
+  const poem = {
+    title: r.title, author: r.author, styleTag: r.styleTag || "",
+    rhymeTag: r.rhymeTag || "", verses: r.verses
+  };
+  renderPoemCards([poem]);
+  const meta = document.getElementById("meta-summary");
+  meta.textContent = `📜 历史记录 · ${r.model || ""} · 开头「${r.seed}」 · ${r.time}`;
+  window._HISTORY_ACTIVE = i;
+  updateHistoryUI();
+  document.getElementById("results-area").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function escapeHtml(str) {
@@ -1120,6 +1222,19 @@ function escapeHtml(str) {
 
 // 页面加载就绪
 window.addEventListener("DOMContentLoaded", () => {
+  // 恢复本地历史记录（localStorage）
+  try {
+    const saved = localStorage.getItem(HISTORY_KEY);
+    if (saved) {
+      const arr = JSON.parse(saved);
+      if (Array.isArray(arr)) historyRecords = arr;
+    }
+    if (localStorage.getItem("poem_history_open") === "1") {
+      document.getElementById("history-section").classList.add("open");
+      document.getElementById("history-arrow").textContent = "▼";
+    }
+  } catch (e) {}
+  updateHistoryUI();
   initModels();
   onTempChange();
 });

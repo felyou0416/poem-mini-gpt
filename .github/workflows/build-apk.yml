@@ -76,35 +76,38 @@ jobs:
       - name: Prepare APK Output
         run: |
           mkdir -p release_apk
-          cp "安卓APP/app/build/outputs/apk/debug/app-debug.apk" "release_apk/写诗AI_v3_sft.apk"
+          cp "安卓APP/app/build/outputs/apk/debug/app-debug.apk" "release_apk/poem.apk"
           echo "=== 构建产物清单 ==="
           ls -lh release_apk/
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: 写诗AI-v3-SFT-安卓安装包
-          path: release_apk/写诗AI_v3_sft.apk
+          name: poem-apk
+          path: release_apk/poem.apk
           retention-days: 30
 
       - name: Publish GitHub Release
         if: github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0
-          name: "写诗 AI 安卓客户端 v1.0.0 (五言BPE v3·SFT 纯离线版)"
-          files: release_apk/写诗AI_v3_sft.apk
+          tag_name: v1.0.1
+          name: "poem v1.0.1 (安卓客户端 · 砚墨成诗)"
+          files: release_apk/poem.apk
           body: |
-            ## 写诗 AI · 安卓端离线推理客户端 (v1.0.0)
+            ## poem · 安卓端离线诗词生成器 (v1.0.1)
 
-            本安装包通过 GitHub Actions 云端流水线全自动构建，已包含标准签名，下载即可直接在安卓设备安装运行。
+            本安装包由 GitHub Actions 云端流水线构建，支持完全离线运行。
 
-            ### 📦 模型规格
-            - **核心模型**: 五言BPE v3·SFT 旗舰版（全唐诗名篇精调，344万参数，6层/192维/6头 RoPE + RMSNorm）
-            - **体积大小**: ~20MB（严格保证仅内置单一目标模型，杜绝冗余体积）
-            - **内置能力**: 平水韵十四韵评分筛选 + Best-of-N 优选重排 + 自动停机 `<|eos|>`
-            - **运行特性**: 纯本地运行，无需联网，离线秒级出诗
+            ### 📦 模型与应用规格
+            - **App 名称**: `poem`
+            - **核心模型**: 五言BPE v3·SFT 旗舰版（344万参数，6层/192维/6头 RoPE + RMSNorm）
+            - **视觉设计**: 1:1 复刻国风 Web 前端，宣纸底色 + 朱砂红“墨韵雅成”印章 + 黛绿平水韵徽章
+            - **交互控制**: 实时采样温度滑块 (0.2~1.5) + 生成首数胶囊选择 + 意象标签池
+            - **实用功能**: 📋一键复制 + 🔊原生语音古风吟诵 + 📤系统一键分享
+            - **安装包体积**: ~20.5MB（严格单一模型打包）
           draft: false
           prerelease: false
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

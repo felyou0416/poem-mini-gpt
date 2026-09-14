@@ -180,16 +180,17 @@ def gen_poems(model, stoi, itos, cfg, seed, temperature, n, max_rounds=3):
     # 按综合得分从高到低排序
     scored.sort(key=lambda x: x[0], reverse=True)
 
-    # 组装返回文本：若成功押韵，在作者后附上韵部小标签（如〔押七尤〕）
+    # 组装返回文本：作者名统一显示为「佚名」，原预测作者名作为风格标签（如「刘禹锡风格」）；
+    # 若成功押韵，在佚名后附韵部小标签（如〔押七尤〕）
     final_poems = []
     for score_val, ev, raw_b in scored[:n]:
         lines = raw_b.split("\n")
-        # 找到作者行（标题后第一个 2~4 字无标点行），在其后追加韵部印记
-        if ev["is_rhymed"] and ev["rhyme_name"]:
-            for li in range(1, min(len(lines), 4)):
-                if _is_author_line(lines[li]):
-                    lines[li] = f"{lines[li]}  〔押{ev['rhyme_name']}〕"
-                    break
+        for li in range(1, min(len(lines), 4)):
+            if _is_author_line(lines[li]):
+                style = lines[li].strip()
+                tag = f"  〔押{ev['rhyme_name']}〕" if ev["is_rhymed"] and ev["rhyme_name"] else ""
+                lines[li] = f"佚名（{style}风格）{tag}"
+                break
         final_poems.append("\n".join(lines))
 
     return final_poems

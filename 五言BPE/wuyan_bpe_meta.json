@@ -1,0 +1,10 @@
+{
+ "vocab_size": 12816,
+ "block_size": 128,
+ "train_tokens": 7914670,
+ "val_tokens": 158254,
+ "num_merges": 2000,
+ "num_chars": 10816,
+ "dedup": 112373,
+ "tokenizer": "bpe"
+}

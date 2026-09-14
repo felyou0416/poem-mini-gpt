@@ -1,0 +1,23 @@
+# ============ 写诗模型 · Git 忽略规则 ============
+
+# 原始开源语料仓库（约165MB，来自 chinese-poetry，README 已注明数据来源）
+chinese-poetry/
+
+# 旧版数据归档（字符级五言，已无用途）
+归档/
+
+# Python 缓存
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# 临时与系统文件
+tmp_*
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 运行中的服务日志等（如需保留可删除本行）
+nohup.out

@@ -1,0 +1,17 @@
+{
+ "vocab_size": 4006,
+ "block_size": 128,
+ "train_tokens": 7113219,
+ "val_tokens": 145403,
+ "num_chars": 4000,
+ "special_tokens": [
+  "<|bos|>",
+  "<|title|>",
+  "<|author|>",
+  "<|body|>",
+  "<|eos|>",
+  "<|unk|>"
+ ],
+ "dedup": 92063,
+ "tokenizer": "char_top4000_special"
+}

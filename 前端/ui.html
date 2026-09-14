@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>砚墨成诗 · 迷你GPT写诗机</title>
+<style>
+  :root {
+    --bg-page: #f5f2e9;
+    --paper-card: #fdfbf7;
+    --paper-card-subtle: #f9f5ec;
+    --ink-primary: #262421;
+    --ink-secondary: #5e5951;
+    --ink-muted: #8c857b;
+    --line-border: #e6dfce;
+    --line-border-strong: #d4c8b2;
+    --pine-green: #1a5649;
+    --pine-green-hover: #134238;
+    --pine-light: #eef6f4;
+    --vermilion: #a8382b;
+    --vermilion-light: #faecea;
+    --shadow-soft: 0 10px 30px rgba(50, 42, 33, 0.06), 0 2px 6px rgba(50, 42, 33, 0.04);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Source Han Sans SC", sans-serif;
+    background: var(--bg-page);
+    background-image: radial-gradient(#e7dfce 1px, transparent 1px);
+    background-size: 24px 24px;
+    color: var(--ink-primary);
+    min-height: 100vh;
+    padding: 32px 16px 60px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 660px;
+    margin: 0 auto;
+  }
+
+  /* 主卡片容器 */
+  .card {
+    background: var(--paper-card);
+    border: 1px solid var(--line-border);
+    border-radius: 16px;
+    box-shadow: var(--shadow-soft);
+    padding: 32px 34px 40px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* 古籍纹理边框线装饰 */
+  .card::before {
+    content: "";
+    position: absolute;
+    top: 6px; left: 6px; right: 6px; bottom: 6px;
+    border: 1px solid rgba(212, 200, 178, 0.45);
+    border-radius: 12px;
+    pointer-events: none;
+  }
+
+  /* 顶部标题栏 */
+  .header {
+    text-align: center;
+    margin-bottom: 24px;
+    position: relative;
+  }
+
+  .header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--pine-green);
+    background: var(--pine-light);
+    border: 1px solid rgba(26, 86, 73, 0.2);
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+
+  h1 {
+    font-family: "Songti SC", "SimSun", "STSong", "Noto Serif SC", serif;
+    font-size: 27px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--ink-primary);
+    margin-bottom: 4px;
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: var(--ink-muted);
+    letter-spacing: 0.5px;
+  }
+
+  /* 表单布局 */
+  .form-section {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .field-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-secondary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .field-label .label-tip {
+    font-size: 11px;
+    font-weight: normal;
+    color: var(--ink-muted);
+  }
+
+  /* 输入控件 */
+  input[type="text"], select {
+    width: 100%;
+    font-size: 14px;
+    padding: 10px 14px;
+    border: 1px solid var(--line-border);
+    border-radius: 9px;
+    background: #ffffff;
+    color: var(--ink-primary);
+    outline: none;
+    transition: all 0.2s ease;
+  }
+
+  input[type="text"]:focus, select:focus {
+    border-color: var(--pine-green);
+    box-shadow: 0 0 0 3px rgba(26, 86, 73, 0.1);
+  }
+
+  /* 灵感标签推荐池 */
+  .tag-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .tag-chip {
+    font-size: 12px;
+    background: var(--paper-card-subtle);
+    border: 1px solid var(--line-border);
+    color: var(--ink-secondary);
+    padding: 3px 9px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+  }
+
+  .tag-chip:hover {
+    background: #eee8db;
+    border-color: var(--line-border-strong);
+    color: var(--ink-primary);
+  }
+
+  .tag-chip.title-type {
+    color: var(--pine-green);
+    background: var(--pine-light);
+    border-color: rgba(26, 86, 73, 0.25);
+  }
+
+  /* 模型选单 & 详细说明卡片 */
+  .model-card-detail {
+    background: var(--paper-card-subtle);
+    border: 1px dashed var(--line-border-strong);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--ink-secondary);
+    line-height: 1.6;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 2px;
+  }
+
+  .model-card-detail .icon {
+    font-size: 16px;
+  }
+
+  /* 参数控制网格 */
+  .controls-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  @media (max-width: 500px) {
+    .controls-grid { grid-template-columns: 1fr; }
+    .card { padding: 24px 20px 30px; }
+  }
+
+  /* 温度滑块容器 */
+  .temp-slider-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .temp-slider-wrap input[type="range"] {
+    flex: 1;
+    accent-color: var(--pine-green);
+    cursor: pointer;
+  }
+
+  .temp-val-badge {
+    font-family: monospace;
+    font-size: 13px;
+    font-weight: 700;
+    min-width: 34px;
+    text-align: right;
+    color: var(--pine-green);
+  }
+
+  .temp-style-hint {
+    font-size: 11px;
+    color: var(--ink-muted);
+    margin-top: 2px;
+  }
+
+  /* 首数切换 Pills */
+  .count-pills {
+    display: flex;
+    border: 1px solid var(--line-border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+  }
+
+  .count-btn {
+    flex: 1;
+    text-align: center;
+    padding: 7px 0;
+    font-size: 13px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--ink-secondary);
+    transition: all 0.15s ease;
+  }
+
+  .count-btn:not(:last-child) {
+    border-right: 1px solid var(--line-border);
+  }
+
+  .count-btn.active {
+    background: var(--pine-green);
+    color: #fff;
+    font-weight: 600;
+  }
+
+  /* 生成主按钮 */
+  .btn-submit {
+    margin-top: 8px;
+    padding: 13px 20px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--pine-green), #14493e);
+    color: #ffffff;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(26, 86, 73, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+  }
+
+  .btn-submit:hover:not(:disabled) {
+    background: linear-gradient(135deg, #164a3e, #0f3930);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(26, 86, 73, 0.32);
+  }
+
+  .btn-submit:disabled {
+    opacity: 0.65;
+    cursor: wait;
+    transform: none;
+  }
+
+  /* 正在生成加载提示 */
+  .loading-box {
+    display: none;
+    text-align: center;
+    padding: 24px 0;
+    color: var(--ink-secondary);
+  }
+
+  .loading-box.active {
+    display: block;
+  }
+
+  .ink-pulse {
+    display: inline-block;
+    width: 22px;
+    height: 22px;
+    border: 3px solid rgba(26, 86, 73, 0.2);
+    border-top-color: var(--pine-green);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 10px;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .loading-text {
+    font-size: 13px;
+    letter-spacing: 1px;
+    color: var(--ink-muted);
+  }
+
+  /* 诗歌输出展示区 */
+  .results-area {
+    margin-top: 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  /* 单首诗卡片 */
+  .poem-card {
+    background: #fffdf8;
+    border: 1px solid var(--line-border);
+    border-radius: 12px;
+    padding: 22px 24px;
+    position: relative;
+    box-shadow: 0 2px 10px rgba(50, 42, 33, 0.03);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .poem-card:hover {
+    box-shadow: 0 4px 16px rgba(50, 42, 33, 0.06);
+  }
+
+  /* 右上角朱砂印章 */
+  .seal {
+    position: absolute;
+    top: 18px;
+    right: 20px;
+    width: 36px;
+    height: 36px;
+    border: 2px solid var(--vermilion);
+    border-radius: 6px;
+    color: var(--vermilion);
+    font-family: "Songti SC", "SimSun", "STSong", serif;
+    font-size: 11px;
+    line-height: 1.1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    transform: rotate(7deg);
+    opacity: 0.85;
+    user-select: none;
+    pointer-events: none;
+  }
+
+  .poem-head {
+    font-family: "Songti SC", "SimSun", "STSong", "Noto Serif SC", serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--ink-primary);
+    margin-bottom: 4px;
+    padding-right: 48px;
+    letter-spacing: 1px;
+  }
+
+  .poem-author {
+    font-size: 12px;
+    color: var(--ink-muted);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .poem-author::before {
+    content: "◈";
+    font-size: 10px;
+    color: var(--pine-green);
+  }
+
+  /* 平水韵韵部标签（作者行高亮徽章） */
+  .rhyme-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 11px;
+    color: var(--pine-green);
+    background: var(--pine-light);
+    border: 1px solid rgba(26, 86, 73, 0.28);
+    border-radius: 10px;
+    padding: 1px 9px;
+    margin-left: 6px;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+  }
+
+  .poem-content {
+    font-family: "KaiTi", "STKaiti", "Biaukai", "Songti SC", serif;
+    font-size: 18px;
+    line-height: 2.1;
+    color: #1f1d1a;
+    letter-spacing: 2px;
+    margin: 12px 0 16px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* 卡片底部操作按钮栏 */
+  .card-actions {
+    border-top: 1px dashed var(--line-border);
+    padding-top: 12px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .action-btn {
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--line-border);
+    background: var(--paper-card-subtle);
+    color: var(--ink-secondary);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s ease;
+  }
+
+  .action-btn:hover {
+    background: #f0e8da;
+    border-color: var(--line-border-strong);
+    color: var(--ink-primary);
+  }
+
+  .action-btn.active-recite {
+    background: var(--pine-light);
+    color: var(--pine-green);
+    border-color: var(--pine-green);
+  }
+
+  /* 提示与错误信息 */
+  .meta-summary {
+    font-size: 12px;
+    color: var(--ink-muted);
+    text-align: center;
+    margin-top: 14px;
+  }
+
+  .error-banner {
+    background: var(--vermilion-light);
+    border: 1px solid rgba(168, 56, 43, 0.25);
+    color: var(--vermilion);
+    font-size: 13px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-top: 12px;
+    display: none;
+  }
+
+  /* 吐司通知 (Toast) */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(38, 36, 33, 0.9);
+    color: #fff;
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-size: 13px;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.25s ease;
+    z-index: 999;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* 折叠历史记录 */
+  .history-toggle-wrap {
+    margin-top: 24px;
+    text-align: center;
+  }
+
+  .history-toggle-btn {
+    background: none;
+    border: none;
+    font-size: 12px;
+    color: var(--ink-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    transition: color 0.15s ease;
+  }
+
+  .history-toggle-btn:hover {
+    color: var(--pine-green);
+    background: var(--paper-card-subtle);
+  }
+
+  .history-section {
+    display: none;
+    margin-top: 14px;
+    border-top: 1px dashed var(--line-border);
+    padding-top: 14px;
+  }
+
+  .history-section.open {
+    display: block;
+  }
+
+  .history-item {
+    font-size: 12px;
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(230, 223, 206, 0.5);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--ink-secondary);
+  }
+
+  .history-item:hover {
+    background: var(--paper-card-subtle);
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="card">
+    <!-- 顶栏标题 -->
+    <div class="header">
+      <div class="header-badge">
+        <span>✦</span> 迷你 GPT 诗词引擎
+      </div>
+      <h1>砚墨成诗</h1>
+      <div class="subtitle">轻量自回归语言模型 · 古风古典格律自动生成</div>
+    </div>
+
+    <!-- 交互配置表单 -->
+    <div class="form-section">
+      <!-- 1. 开头/命题输入 -->
+      <div class="field-group">
+        <div class="field-label">
+          <span>灵感命题 / 诗歌开头</span>
+          <span class="label-tip">支持意向词或《标题》</span>
+        </div>
+        <input type="text" id="seed" value="秋思" placeholder="如：秋思（意境） / 《山高水流》（标题）" maxlength="20">
+        
+        <!-- 灵感词快速选填 -->
+        <div class="tag-container">
+          <span class="tag-chip" onclick="pickTag('秋思')">秋思</span>
+          <span class="tag-chip" onclick="pickTag('孤舟')">孤舟</span>
+          <span class="tag-chip" onclick="pickTag('咏梅')">咏梅</span>
+          <span class="tag-chip" onclick="pickTag('听雨')">听雨</span>
+          <span class="tag-chip" onclick="pickTag('登高')">登高</span>
+          <span class="tag-chip" onclick="pickTag('夜泊')">夜泊</span>
+          <span class="tag-chip title-type" onclick="pickTag('《春日》')">《春日》</span>
+          <span class="tag-chip title-type" onclick="pickTag('《山高水流》')">《山高水流》</span>
+          <span class="tag-chip title-type" onclick="pickTag('《临江仙》')">《临江仙》</span>
+        </div>
+      </div>
+
+      <!-- 2. 模型选择 -->
+      <div class="field-group">
+        <div class="field-label">
+          <span>推理模型</span>
+          <span class="label-tip" id="model-badge">12,816 词元 · 245万参数</span>
+        </div>
+        <select id="model" onchange="onModelChange()">
+          <option value="wuyan_bpe_v3_sft" selected>五言BPE v3·SFT（唐风微调 · 当前最强）</option>
+          <option value="wuyan_bpe_v3">五言BPE v3（全新架构 · 严格五言）</option>
+          <option value="wuyan_bpe">五言BPE v2（BPE分词 · 上一代）</option>
+          <option value="jueju">五言绝句（格式最严整 · 1.7万首专训）</option>
+          <option value="all">通用模型（33万首全语料 · 体裁广泛）</option>
+        </select>
+        <div class="model-card-detail" id="model-desc">
+          <span class="icon">📜</span>
+          <span id="model-desc-text">9.2万首严格五言预训练 + 3,125首李杜王孟名篇SFT · 当前最强</span>
+        </div>
+      </div>
+
+      <!-- 3. 双列参数调节：温度与首数 -->
+      <div class="controls-grid">
+        <!-- 采样温度 -->
+        <div class="field-group">
+          <div class="field-label">
+            <span>采样温度</span>
+            <span class="temp-val-badge" id="temp-val">0.6</span>
+          </div>
+          <div class="temp-slider-wrap">
+            <input type="range" id="temp" min="0.2" max="1.5" step="0.05" value="0.6" oninput="onTempChange()">
+          </div>
+          <div class="temp-style-hint" id="temp-hint">黄金平衡（推荐，韵味自然）</div>
+        </div>
+
+        <!-- 生成首数 -->
+        <div class="field-group">
+          <div class="field-label">
+            <span>生成首数</span>
+            <span class="label-tip">批量采样对比</span>
+          </div>
+          <div class="count-pills">
+            <button type="button" class="count-btn" onclick="setN(1)">1首</button>
+            <button type="button" class="count-btn" onclick="setN(2)">2首</button>
+            <button type="button" class="count-btn active" onclick="setN(3)">3首</button>
+            <button type="button" class="count-btn" onclick="setN(4)">4首</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 生成触发按钮 -->
+      <button class="btn-submit" id="btn-submit" onclick="generatePoems()">
+        <span>✦</span> 研墨成诗
+      </button>
+
+      <!-- 错误提示 -->
+      <div class="error-banner" id="error-banner"></div>
+    </div>
+
+    <!-- 加载中动画 -->
+    <div class="loading-box" id="loading-box">
+      <div class="ink-pulse"></div>
+      <div class="loading-text" id="loading-text">正在推演平仄韵律，请稍候...</div>
+    </div>
+
+    <!-- 结果展示区 -->
+    <div class="results-area" id="results-area"></div>
+    <div class="meta-summary" id="meta-summary"></div>
+
+    <!-- 历史生成记录 (折叠) -->
+    <div class="history-toggle-wrap">
+      <button class="history-toggle-btn" onclick="toggleHistory()">
+        <span id="history-arrow">▶</span> 本次会话生成历史 (<span id="history-count">0</span>)
+      </button>
+    </div>
+    <div class="history-section" id="history-section">
+      <div id="history-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 吐司通知提示 -->
+<div class="toast" id="toast">复制成功</div>
+
+<script>
+// ---------- 模型元数据与描述表 ----------
+const MODEL_DETAILS = {
+  "wuyan_bpe_v3_sft": {
+    name: "五言BPE v3·SFT",
+    badge: "4,006 词元 · 344万参数 · 唐风微调",
+    desc: "9.2万首严格五言预训练 + 3,125首李杜王孟名篇SFT · 当前最强",
+    icon: "🏮"
+  },
+  "wuyan_bpe_v3": {
+    name: "五言BPE v3",
+    badge: "4,006 词元 · 344万参数",
+    desc: "9.2万首严格五言 · 4000高频字+6特殊token · 6层RoPE+RMSNorm全新架构",
+    icon: "🚀"
+  },
+  "wuyan_bpe": {
+    name: "五言BPE v2",
+    badge: "12,816 词元 · 245万参数",
+    desc: "11万首五言经去重清洗 · 自研BPE分词 · 学会《标题》+作者+诗句完整格式",
+    icon: "⭐"
+  },
+  "jueju": {
+    name: "五言绝句",
+    badge: "6,167 词元 · 160万参数",
+    desc: "1.7万首五言绝句专训 · 2000步收敛 · 五言四句字数节奏严格工整",
+    icon: "📐"
+  },
+  "all": {
+    name: "通用模型",
+    badge: "12,776 词元 · 246万参数",
+    desc: "33万首全唐诗/宋词/元曲全量语料 · 体裁广泛多样",
+    icon: "📚"
+  }
+};
+
+let currentN = 3;
+let historyRecords = [];
+let recitingIndex = null;
+
+// ---------- 初始化加载可用模型列表 ----------
+async function initModels() {
+  try {
+    const res = await fetch("/api/models");
+    if (res.ok) {
+      const data = await res.json();
+      if (data.models && data.models.length > 0) {
+        const select = document.getElementById("model");
+        select.innerHTML = data.models.map((m, idx) => `
+          <option value="${m.id}" ${idx === 0 ? "selected" : ""}>
+            ${m.name}（${m.desc.split(" · ").pop() || m.desc}）
+          </option>
+        `).join("");
+      }
+    }
+  } catch (e) {
+    // 离线或纯静态文件打开时，保持硬编码兜底配置，不报错
+    console.log("使用本地内嵌模型列表配置");
+  }
+  onModelChange();
+}
+
+// ---------- 界面交互辅助函数 ----------
+function pickTag(text) {
+  const input = document.getElementById("seed");
+  input.value = text;
+  input.focus();
+}
+
+function onModelChange() {
+  const modelId = document.getElementById("model").value;
+  const info = MODEL_DETAILS[modelId] || {
+    badge: "自研迷你GPT",
+    desc: "古典诗歌语言模型",
+    icon: "📜"
+  };
+  document.getElementById("model-badge").textContent = info.badge;
+  document.getElementById("model-desc-text").textContent = info.desc;
+  document.querySelector("#model-desc .icon").textContent = info.icon;
+}
+
+function onTempChange() {
+  const val = parseFloat(document.getElementById("temp").value);
+  document.getElementById("temp-val").textContent = val.toFixed(2);
+  const hintEl = document.getElementById("temp-hint");
+  if (val <= 0.4) {
+    hintEl.textContent = "工整克制（词句保守规矩，重复度略高）";
+  } else if (val <= 0.7) {
+    hintEl.textContent = "黄金平衡（推荐，韵味自然，意象适度）";
+  } else if (val <= 1.0) {
+    hintEl.textContent = "灵动飘逸（词彩生动，偶有新意）";
+  } else {
+    hintEl.textContent = "天马行空（极高随机性，容易脱离平仄）";
+  }
+}
+
+function setN(n) {
+  currentN = n;
+  document.querySelectorAll(".count-btn").forEach((btn, idx) => {
+    btn.classList.toggle("active", idx + 1 === n);
+  });
+}
+
+function showToast(msg) {
+  const toast = document.getElementById("toast");
+  toast.textContent = msg;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 1800);
+}
+
+// ---------- 诗歌解析器 ----------
+function parsePoemBlock(rawText) {
+  const lines = rawText.trim().split("\n").map(l => l.trim()).filter(Boolean);
+  let title = "《无题》";
+  let author = "无名氏";
+  let rhymeTag = "";
+  let verses = [];
+
+  let startIdx = 0;
+  if (lines.length > 0 && (lines[0].startsWith("《") || lines[0].includes("》"))) {
+    title = lines[0];
+    startIdx = 1;
+    if (lines.length > 1 && (lines[1].length <= 24 || lines[1].includes("〔押")) && !lines[1].includes("，") && !lines[1].includes("。")) {
+      // 兼容带平水韵标签的作者行：如 "李白  〔押七尤〕"
+      const m = lines[1].match(/〔押(.+?)〕/);
+      if (m) {
+        rhymeTag = m[1].trim();
+        author = lines[1].replace(/〔押.+?〕/g, "").trim() || "无名氏";
+      } else {
+        author = lines[1];
+      }
+      startIdx = 2;
+    }
+  }
+
+  verses = lines.slice(startIdx);
+  if (verses.length === 0 && lines.length > 0) {
+    verses = lines;
+  }
+
+  return { title, author, rhymeTag, verses: verses.join("\n"), raw: rawText };
+}
+
+// ---------- 核心生成请求 ----------
+async function generatePoems() {
+  const btn = document.getElementById("btn-submit");
+  const errBox = document.getElementById("error-banner");
+  const loadingBox = document.getElementById("loading-box");
+  const resultsArea = document.getElementById("results-area");
+  const metaSummary = document.getElementById("meta-summary");
+  const seedInput = document.getElementById("seed");
+
+  const seed = seedInput.value.trim() || "秋思";
+  const temp = parseFloat(document.getElementById("temp").value) || 0.6;
+  const modelId = document.getElementById("model").value;
+
+  btn.disabled = true;
+  errBox.style.display = "none";
+  loadingBox.classList.add("active");
+  resultsArea.innerHTML = "";
+  metaSummary.textContent = "";
+
+  // 动态加载提示语轮播
+  const loadingTexts = [
+    "正在推演平仄韵律...",
+    "自回归采样生成中...",
+    "研墨挥毫，意象缀连...",
+    "斟酌字句章法..."
+  ];
+  let textIdx = 0;
+  const timer = setInterval(() => {
+    textIdx = (textIdx + 1) % loadingTexts.length;
+    document.getElementById("loading-text").textContent = loadingTexts[textIdx];
+  }, 1200);
+
+  const startTime = Date.now();
+
+  try {
+    const res = await fetch("/api/poem", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        seed: seed,
+        temperature: temp,
+        n: currentN,
+        model: modelId
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "生成服务响应异常");
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    const poems = (data.poems || []).map(parsePoemBlock);
+
+    if (poems.length === 0) {
+      resultsArea.innerHTML = `<div style="text-align:center; padding:30px; color:var(--ink-muted);">
+        未能切出合规诗篇，建议更换开头意象或微调温度重试。
+      </div>`;
+      return;
+    }
+
+    // 渲染诗歌卡片
+    resultsArea.innerHTML = poems.map((p, idx) => `
+      <div class="poem-card" id="poem-card-${idx}">
+        <div class="seal">墨韵<br>雅成</div>
+        <div class="poem-head">${escapeHtml(p.title)}</div>
+        <div class="poem-author">${escapeHtml(p.author)}${p.rhymeTag ? `<span class="rhyme-badge">押${escapeHtml(p.rhymeTag)}</span>` : ""}</div>
+        <div class="poem-content">${escapeHtml(p.verses)}</div>
+        <div class="card-actions">
+          <button class="action-btn" onclick="copyPoem(${idx})">
+            <span>📋</span> 复制
+          </button>
+          <button class="action-btn" onclick="recitePoem(${idx})">
+            <span id="recite-icon-${idx}">🔊</span> 吟诵
+          </button>
+          <button class="action-btn" onclick="exportPoemCard(${idx})">
+            <span>🖼️</span> 导出诗卡
+          </button>
+        </div>
+      </div>
+    `).join("");
+
+    metaSummary.textContent = `${data.model_name || modelId} · 温度 ${data.temperature} · 耗时 ${elapsed}s · 共 ${poems.length} 首`;
+
+    // 记录到会话历史
+    poems.forEach(p => {
+      historyRecords.unshift({
+        title: p.title,
+        author: p.author,
+        rhymeTag: p.rhymeTag || "",
+        verses: p.verses,
+        seed: seed,
+        model: data.model_name || modelId,
+        time: new Date().toLocaleTimeString()
+      });
+    });
+    updateHistoryUI();
+
+    // 缓存到全局以便操作
+    window._CURRENT_POEMS = poems;
+
+  } catch (err) {
+    errBox.textContent = "生成失败: " + err.message;
+    errBox.style.display = "block";
+  } finally {
+    clearInterval(timer);
+    loadingBox.classList.remove("active");
+    btn.disabled = false;
+  }
+}
+
+// ---------- 实用功能：一键复制 ----------
+function copyPoem(idx) {
+  const p = window._CURRENT_POEMS[idx];
+  if (!p) return;
+  const authorLine = p.author + (p.rhymeTag ? "  〔押" + p.rhymeTag + "〕" : "");
+  const fullText = `${p.title}\n${authorLine}\n\n${p.verses}\n\n—— 迷你GPT·砚墨成诗`;
+  navigator.clipboard.writeText(fullText).then(() => {
+    showToast("✓ 诗文已复制到剪贴板");
+  }).catch(() => {
+    // 兼容方案
+    const area = document.createElement("textarea");
+    area.value = fullText;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    document.body.removeChild(area);
+    showToast("✓ 诗文已复制");
+  });
+}
+
+// ---------- 实用功能：语音吟诵 (SpeechSynthesis) ----------
+function recitePoem(idx) {
+  const p = window._CURRENT_POEMS[idx];
+  if (!p || !('speechSynthesis' in window)) {
+    showToast("当前浏览器不支持语音吟诵");
+    return;
+  }
+
+  const iconEl = document.getElementById(`recite-icon-${idx}`);
+
+  if (speechSynthesis.speaking && recitingIndex === idx) {
+    speechSynthesis.cancel();
+    recitingIndex = null;
+    if (iconEl) iconEl.textContent = "🔊";
+    return;
+  }
+
+  speechSynthesis.cancel();
+  if (recitingIndex !== null) {
+    const prev = document.getElementById(`recite-icon-${recitingIndex}`);
+    if (prev) prev.textContent = "🔊";
+  }
+
+  recitingIndex = idx;
+  if (iconEl) iconEl.textContent = "⏹";
+
+  // 格式化朗读文本，增加诗词朗读停顿
+  const speechText = `${p.title}。${p.author}。${p.verses.replace(/\n/g, "，")}`;
+  const utterance = new SpeechSynthesisUtterance(speechText);
+  utterance.lang = "zh-CN";
+  utterance.rate = 0.82; // 稍慢节奏更有古意
+  utterance.pitch = 1.0;
+
+  utterance.onend = () => {
+    recitingIndex = null;
+    if (iconEl) iconEl.textContent = "🔊";
+  };
+  utterance.onerror = () => {
+    recitingIndex = null;
+    if (iconEl) iconEl.textContent = "🔊";
+  };
+
+  speechSynthesis.speak(utterance);
+}
+
+// ---------- 实用功能：Canvas 宣纸风精致诗卡导出 ----------
+function exportPoemCard(idx) {
+  const p = window._CURRENT_POEMS[idx];
+  if (!p) return;
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+
+  // 卡片尺寸与分辨率 (高分屏倍率 2x)
+  const dpr = 2;
+  const width = 460;
+  const lines = p.verses.split("\n");
+  const height = 380 + lines.length * 40;
+
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  ctx.scale(dpr, dpr);
+
+  // 1. 绘制宣纸复古底色
+  const grad = ctx.createLinearGradient(0, 0, width, height);
+  grad.addColorStop(0, "#FBF8F1");
+  grad.addColorStop(1, "#F4ECE1");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, width, height);
+
+  // 2. 绘制典雅双重内边框
+  ctx.strokeStyle = "#D9CEBA";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(16, 16, width - 32, height - 32);
+
+  ctx.strokeStyle = "rgba(217, 206, 186, 0.6)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(22, 22, width - 44, height - 44);
+
+  // 3. 诗歌标题
+  ctx.fillStyle = "#262421";
+  ctx.font = "bold 22px 'Songti SC', 'SimSun', 'STSong', serif";
+  ctx.textAlign = "center";
+  ctx.fillText(p.title, width / 2, 75);
+
+  // 4. 作者
+  ctx.fillStyle = "#7E7567";
+  ctx.font = "14px 'PingFang SC', 'Microsoft YaHei', sans-serif";
+  ctx.fillText("◈ " + p.author + (p.rhymeTag ? " 〔押" + p.rhymeTag + "〕" : ""), width / 2, 108);
+
+  // 5. 装饰横线
+  ctx.strokeStyle = "#E4DAC8";
+  ctx.beginPath();
+  ctx.moveTo(width / 2 - 40, 126);
+  ctx.lineTo(width / 2 + 40, 126);
+  ctx.stroke();
+
+  // 6. 诗词正文 (楷体居中)
+  ctx.fillStyle = "#1E1C1A";
+  ctx.font = "20px 'STKaiti', 'KaiTi', 'Songti SC', serif";
+  let startY = 175;
+  const lineHeight = 36;
+
+  lines.forEach(line => {
+    ctx.fillText(line, width / 2, startY);
+    startY += lineHeight;
+  });
+
+  // 7. 绘制朱砂红印章 (右下角)
+  const sealX = width - 85;
+  const sealY = height - 105;
+  ctx.strokeStyle = "#A8382B";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(sealX, sealY, 44, 44);
+
+  ctx.fillStyle = "#A8382B";
+  ctx.font = "bold 13px 'Songti SC', 'SimSun', serif";
+  ctx.fillText("墨", sealX + 15, sealY + 18);
+  ctx.fillText("韵", sealX + 29, sealY + 18);
+  ctx.fillText("雅", sealX + 15, sealY + 34);
+  ctx.fillText("成", sealX + 29, sealY + 34);
+
+  // 8. 底部小字落款
+  ctx.fillStyle = "#A39A8C";
+  ctx.font = "11px 'PingFang SC', 'Microsoft YaHei', sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("迷你GPT写诗小模型 · 生成留念", 32, height - 34);
+
+  // 导出并触发自动下载
+  const link = document.createElement("a");
+  const safeTitle = p.title.replace(/[《》\s]/g, "") || "诗词";
+  link.download = `${safeTitle}_诗卡.png`;
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+
+  showToast("✓ 诗词精美图卡已导出");
+}
+
+// ---------- 历史记录交互 ----------
+function toggleHistory() {
+  const section = document.getElementById("history-section");
+  const arrow = document.getElementById("history-arrow");
+  const isOpen = section.classList.toggle("open");
+  arrow.textContent = isOpen ? "▼" : "▶";
+}
+
+function updateHistoryUI() {
+  document.getElementById("history-count").textContent = historyRecords.length;
+  const list = document.getElementById("history-list");
+  list.innerHTML = historyRecords.slice(0, 10).map((r, i) => `
+    <div class="history-item">
+      <span><strong>${escapeHtml(r.title)}</strong> · ${escapeHtml(r.author)}${r.rhymeTag ? ` <em style="color:var(--pine-green);font-style:normal;font-size:10px;">〔押${escapeHtml(r.rhymeTag)}〕</em>` : ""}（${escapeHtml(r.seed)}）</span>
+      <span style="font-size:11px; color:#a09a8e;">${r.time}</span>
+    </div>
+  `).join("");
+}
+
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+// 页面加载就绪
+window.addEventListener("DOMContentLoaded", () => {
+  initModels();
+  onTempChange();
+});
+</script>
+</body>
+</html>

@@ -454,38 +454,40 @@
   }
 
   .poem-content {
-    font-family: "KaiTi", "STKaiti", "Biaukai", "Songti SC", serif;
+    font-family: "STKaiti", "KaiTi", "Biaukai", "Songti SC", serif;
     font-size: 19px;
-    line-height: 2.2;
-    color: #1f1d1a;
-    letter-spacing: 2px;
-    margin: 12px 0 16px;
+    line-height: 1.75;
+    color: #1a1816;
+    letter-spacing: 1.5px;
+    margin: 14px 0 18px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    align-items: center;
+    gap: 10px;
   }
 
   .couplet-row {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 28px;
-    width: 100%;
+    gap: 16px;
+    width: auto;
   }
 
   .couplet-col.left {
     text-align: right;
-    flex: 1;
+    white-space: nowrap;
   }
 
   .couplet-col.right {
     text-align: left;
-    flex: 1;
+    white-space: nowrap;
   }
 
-  .couplet-col.center {
+  .single-line {
     text-align: center;
-    flex: 1;
+    white-space: nowrap;
+    width: 100%;
   }
 
   /* 卡片底部操作按钮栏 */
@@ -1173,32 +1175,36 @@ function exportPoemCard(idx) {
     segs = matched ? matched.map(s => s.trim()).filter(Boolean) : [p.verses.trim()];
   }
 
-  // 2. 配对成两列对仗联（上联在左列，下联在右列，律诗4联对列，绝句2联对列）
-  const couplets = [];
-  for (let i = 0; i < segs.length; i += 2) {
-    if (i + 1 < segs.length) {
-      couplets.push([segs[i], segs[i + 1]]);
-    } else {
-      couplets.push([segs[i], ""]);
+  // 2. 智能版面生成：绝句(<=4句)单句居中，律诗(>4句)双列紧凑对仗
+  const linesToRender = [];
+  if (segs.length <= 4) {
+    segs.forEach(s => linesToRender.push({ mode: "single", s1: s, s2: "" }));
+  } else {
+    for (let i = 0; i < segs.length; i += 2) {
+      if (i + 1 < segs.length) {
+        linesToRender.push({ mode: "couplet", s1: segs[i], s2: segs[i + 1] });
+      } else {
+        linesToRender.push({ mode: "single", s1: segs[i], s2: "" });
+      }
     }
   }
 
-  // 宽度设为 540，双列并排大气疏朗
-  const width = 540;
+  // 3. 紧凑精修尺寸体系（宽 400px，高度自然自适应，彻底解决空旷散漫）
+  const width = 400;
+  const topPad = 42;
+  const titleH = 30;
+  const metaH = 22;
+  const dividerH = 18;
+  const gapBefore = 20;
+  const rowH = 34; // 紧凑行距：34px对应19px字号，气韵紧密连贯
+  const versesH = linesToRender.length * rowH;
+  const gapAfter = 24;
+  const footerH = 28;
+  const bottomPad = 22;
 
-  // 3. 自适应高度（以对联行数为基准，8句诗为4联，彻底告别单列过长）
-  const topPad = 48;
-  const titleH = 34;
-  const authorH = 28;
-  const dividerH = 22;
-  const rowH = 44;
-  const versesH = couplets.length * rowH;
-  const footerH = 46;
-  const bottomPad = 32;
+  const height = topPad + titleH + metaH + dividerH + gapBefore + versesH + gapAfter + footerH + bottomPad;
 
-  const height = topPad + titleH + authorH + dividerH + versesH + footerH + bottomPad;
-
-  // 3. 超采样 2x 视网膜高清分辨率 (导出 1000px 宽图片)
+  // 4. 超采样 2x 视网膜高清分辨率 (导出 800px 宽超清图片)
   const dpr = 2;
   canvas.width = width * dpr;
   canvas.height = height * dpr;
@@ -1224,27 +1230,27 @@ function exportPoemCard(idx) {
     ctx.closePath();
   }
 
-  // 4. 绘制宣纸渐变底色
+  // 5. 绘制宣纸渐变底色（上暖浅，下稍沉）
   const grad = ctx.createLinearGradient(0, 0, width, height);
-  grad.addColorStop(0, "#FAF6EE");
-  grad.addColorStop(1, "#F3ECE0");
+  grad.addColorStop(0, "#FAF7F1");
+  grad.addColorStop(1, "#F4ECE0");
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, width, height);
 
-  // 5. 绘制宋韵雅致双重内边框与古法四角回纹折角
-  const m1 = 18;
-  ctx.strokeStyle = "#D9CEBA";
-  ctx.lineWidth = 1.5;
+  // 6. 绘制宋韵雅致双重内边框与古法四角回纹
+  const m1 = 14;
+  ctx.strokeStyle = "#DDD1BC";
+  ctx.lineWidth = 1.2;
   ctx.strokeRect(m1, m1, width - m1 * 2, height - m1 * 2);
 
-  const m2 = 24;
-  ctx.strokeStyle = "#EBE3D3";
+  const m2 = 19;
+  ctx.strokeStyle = "#ECE3D4";
   ctx.lineWidth = 1;
   ctx.strokeRect(m2, m2, width - m2 * 2, height - m2 * 2);
 
-  // 四角笺纸古典回纹折线
-  const cw = 7;
-  ctx.strokeStyle = "#C4B79F";
+  // 四角笺纸古典折纹
+  const cw = 5;
+  ctx.strokeStyle = "#C4B7A0";
   ctx.lineWidth = 1;
   [
     [m2, m2, 1, 1],
@@ -1259,23 +1265,22 @@ function exportPoemCard(idx) {
     ctx.stroke();
   });
 
-  // 6. 右上角「墨韵雅成」朱砂印章 (引首章)
+  // 7. 右上角「墨韵雅成」朱砂小印章（小巧 28px，微倾斜，古法温润）
   ctx.save();
-  const sealW = 38;
-  const sealX = width - 28 - sealW;
-  const sealY = 28;
-  // 微倾斜 5 度增添古法朱砂印泥手工韵味
+  const sealW = 28;
+  const sealX = width - 22 - sealW;
+  const sealY = 22;
   ctx.translate(sealX + sealW / 2, sealY + sealW / 2);
-  ctx.rotate(5 * Math.PI / 180);
+  ctx.rotate(4 * Math.PI / 180);
   ctx.translate(-(sealX + sealW / 2), -(sealY + sealW / 2));
 
-  ctx.strokeStyle = "#A8382B";
-  ctx.lineWidth = 1.6;
-  drawRoundRect(sealX, sealY, sealW, sealW, 4);
+  ctx.strokeStyle = "#9B3124";
+  ctx.lineWidth = 1.3;
+  drawRoundRect(sealX, sealY, sealW, sealW, 3);
   ctx.stroke();
 
-  ctx.fillStyle = "#A8382B";
-  ctx.font = "bold 11px 'Songti SC', 'SimSun', 'STSong', serif";
+  ctx.fillStyle = "#9B3124";
+  ctx.font = "bold 10px 'Songti SC', 'SimSun', 'STSong', serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   const sHalf = sealW / 2;
@@ -1285,118 +1290,61 @@ function exportPoemCard(idx) {
   ctx.fillText("成", sealX + sHalf * 1.5, sealY + sHalf * 1.5);
   ctx.restore();
 
-  // 7. 诗歌标题 (宋体粗体大字居中)
+  // 8. 诗歌标题 (宋体浓墨大字居中)
   let curY = topPad;
-  ctx.fillStyle = "#22201D";
-  ctx.font = "bold 23px 'Songti SC', 'SimSun', 'Noto Serif SC', serif";
+  ctx.fillStyle = "#1B1917";
+  ctx.font = "bold 21px 'Songti SC', 'SimSun', 'Noto Serif SC', serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(p.title, width / 2, curY + 12);
+  ctx.fillText(p.title, width / 2, curY + 10);
   curY += titleH;
 
-  // 8. 作者行与双徽章系统 (居中对称均衡排布)
-  const authorStr = "◈ " + p.author;
-  ctx.font = "13px 'PingFang SC', 'Microsoft YaHei', sans-serif";
-  const authorWidth = ctx.measureText(authorStr).width;
-
-  let styleWidth = 0;
-  if (p.styleTag) {
-    ctx.font = "11px 'PingFang SC', 'Microsoft YaHei', sans-serif";
-    styleWidth = ctx.measureText(p.styleTag + "风格").width + 16;
-  }
-
-  let rhymeWidth = 0;
-  if (p.rhymeTag) {
-    ctx.font = "bold 11px 'PingFang SC', 'Microsoft YaHei', sans-serif";
-    rhymeWidth = ctx.measureText("押" + p.rhymeTag).width + 18;
-  }
-
-  const gap = 8;
-  const totalAuthorWidth = authorWidth + (styleWidth ? gap + styleWidth : 0) + (rhymeWidth ? gap + rhymeWidth : 0);
-  let currentStartX = (width - totalAuthorWidth) / 2;
-
-  // 绘制作者文本
-  ctx.font = "13px 'PingFang SC', 'Microsoft YaHei', sans-serif";
-  ctx.fillStyle = "#70685C";
-  ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-  ctx.fillText(authorStr, currentStartX, curY + 8);
-  currentStartX += authorWidth;
-
-  // 绘制风格标签胶囊
-  if (p.styleTag) {
-    currentStartX += gap;
-    const badgeH = 18;
-    const badgeY = curY + 8 - badgeH / 2;
-    ctx.strokeStyle = "#B8B0A5";
-    ctx.lineWidth = 1;
-    drawRoundRect(currentStartX, badgeY, styleWidth, badgeH, 4);
-    ctx.stroke();
-
-    ctx.fillStyle = "#877E71";
-    ctx.font = "11px 'PingFang SC', 'Microsoft YaHei', sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText(p.styleTag + "风格", currentStartX + styleWidth / 2, curY + 8);
-    currentStartX += styleWidth;
-  }
-
-  // 绘制押韵胶囊
-  if (p.rhymeTag) {
-    currentStartX += gap;
-    const badgeH = 18;
-    const badgeY = curY + 8 - badgeH / 2;
-    ctx.fillStyle = "#EAF3F0";
-    ctx.strokeStyle = "#1A5649";
-    ctx.lineWidth = 1;
-    drawRoundRect(currentStartX, badgeY, rhymeWidth, badgeH, 9);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = "#1A5649";
-    ctx.font = "bold 11px 'PingFang SC', 'Microsoft YaHei', sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("押" + p.rhymeTag, currentStartX + rhymeWidth / 2, curY + 8);
-  }
-  curY += authorH;
-
-  // 9. 古雅装饰线与菱心
-  const dividerY = curY + 6;
-  ctx.strokeStyle = "#DDD3C1";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(width / 2 - 50, dividerY);
-  ctx.lineTo(width / 2 + 50, dividerY);
-  ctx.stroke();
-
-  ctx.fillStyle = "#A8382B";
-  ctx.font = "10px serif";
+  // 9. 题跋作者行（文人雅致风：◈ 佚名（贾岛风格） · 押七尤）
+  let metaStr = "◈ " + p.author;
+  if (p.styleTag) metaStr += `（${p.styleTag}风格）`;
+  if (p.rhymeTag) metaStr += ` · 押${p.rhymeTag}`;
+  ctx.font = "11px 'PingFang SC', 'Microsoft YaHei', sans-serif";
+  ctx.fillStyle = "#7A7163";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("◈", width / 2, dividerY);
-  curY += dividerH;
+  ctx.fillText(metaStr, width / 2, curY + 4);
+  curY += metaH;
 
-  // 10. 诗词正文：两列对仗式排版（上联在左列，下联在右列，中轴对称呼应）
-  const colGap = 32; // 两列之间的优美间距
-  ctx.fillStyle = "#1C1A18";
-  ctx.font = "21px 'STKaiti', 'KaiTi', 'Songti SC', serif";
+  // 10. 典雅细分割线与朱砂菱形
+  const lineY = curY + 4;
+  ctx.strokeStyle = "#DCD0BD";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(width / 2 - 28, lineY);
+  ctx.lineTo(width / 2 + 28, lineY);
+  ctx.stroke();
+
+  ctx.fillStyle = "#9B3124";
+  ctx.font = "8px serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("◈", width / 2, lineY);
+  curY += dividerH + gapBefore;
+
+  // 11. 诗词正文排版（两列紧凑间距 16px，左右呼应，气韵连贯）
+  const colGap = 16;
+  ctx.fillStyle = "#181614";
+  ctx.font = "19px 'STKaiti', 'KaiTi', 'Songti SC', serif";
   ctx.textBaseline = "middle";
   if ('letterSpacing' in ctx) {
-    ctx.letterSpacing = "2px";
+    ctx.letterSpacing = "1.5px";
   }
 
-  couplets.forEach(([leftLine, rightLine]) => {
+  linesToRender.forEach(item => {
     const rowMidY = curY + rowH / 2;
-    if (rightLine) {
-      // 上联：右对齐到中轴偏左
-      ctx.textAlign = "right";
-      ctx.fillText(leftLine, width / 2 - colGap / 2, rowMidY);
-      // 下联：左对齐从中轴偏右
-      ctx.textAlign = "left";
-      ctx.fillText(rightLine, width / 2 + colGap / 2, rowMidY);
-    } else {
-      // 奇数独句居中
+    if (item.mode === "single") {
       ctx.textAlign = "center";
-      ctx.fillText(leftLine, width / 2, rowMidY);
+      ctx.fillText(item.s1, width / 2, rowMidY);
+    } else {
+      ctx.textAlign = "right";
+      ctx.fillText(item.s1, width / 2 - colGap / 2, rowMidY);
+      ctx.textAlign = "left";
+      ctx.fillText(item.s2, width / 2 + colGap / 2, rowMidY);
     }
     curY += rowH;
   });
@@ -1405,18 +1353,18 @@ function exportPoemCard(idx) {
     ctx.letterSpacing = "0px";
   }
 
-  // 11. 底部落款
+  // 12. 底部落款
   const footY = height - bottomPad;
-  ctx.fillStyle = "#A39A8C";
-  ctx.font = "11px 'PingFang SC', 'Microsoft YaHei', sans-serif";
+  ctx.fillStyle = "#A69C8E";
+  ctx.font = "10px 'PingFang SC', 'Microsoft YaHei', sans-serif";
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
-  ctx.fillText("迷你 GPT 诗词引擎 · 纯离线自回归生成", m2 + 10, footY);
+  ctx.fillText("迷你 GPT 诗词引擎 · 纯离线自回归生成", m2 + 8, footY);
 
   ctx.textAlign = "right";
-  ctx.fillText("—— 砚墨成诗", width - m2 - 10, footY);
+  ctx.fillText("—— 砚墨成诗", width - m2 - 8, footY);
 
-  // 12. 触发下载
+  // 13. 触发下载
   const link = document.createElement("a");
   const safeTitle = p.title.replace(/[《》\s]/g, "") || "诗词";
   link.download = `${safeTitle}_诗卡.png`;
@@ -1426,7 +1374,7 @@ function exportPoemCard(idx) {
   showToast("✓ 诗词精美图卡已导出");
 }
 
-// ---------- 辅助：将正文格式化为两列对仗联 HTML ----------
+// ---------- 辅助：将正文格式化为优雅诗行（绝句单句居中，律诗两列紧凑对排） ----------
 function formatVersesHTML(versesStr) {
   let segs = [];
   const rawLines = (versesStr || "").split("\n").map(l => l.trim()).filter(Boolean);
@@ -1443,6 +1391,12 @@ function formatVersesHTML(versesStr) {
     segs = matched ? matched.map(s => s.trim()).filter(Boolean) : [versesStr.trim()];
   }
 
+  // 绝句 (<= 4 句)：单句整齐居中排列（自然4行，疏朗整饬）
+  if (segs.length <= 4) {
+    return segs.map(s => `<div class="single-line">${escapeHtml(s)}</div>`).join("");
+  }
+
+  // 律诗 (> 4 句)：两两对仗成联，4行双列紧凑对排
   const rows = [];
   for (let i = 0; i < segs.length; i += 2) {
     if (i + 1 < segs.length) {
@@ -1454,9 +1408,7 @@ function formatVersesHTML(versesStr) {
       `);
     } else {
       rows.push(`
-        <div class="couplet-row">
-          <span class="couplet-col center">${escapeHtml(segs[i])}</span>
-        </div>
+        <div class="single-line">${escapeHtml(segs[i])}</div>
       `);
     }
   }

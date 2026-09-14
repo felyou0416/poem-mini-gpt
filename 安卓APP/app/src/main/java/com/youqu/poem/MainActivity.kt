@@ -229,7 +229,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun addPoemCard(text: String) {
+    private fun addPoemCard(poemContent: String) {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(18), dp(16), dp(18), dp(14))
@@ -239,7 +239,7 @@ class MainActivity : AppCompatActivity() {
                 bottomMargin = dp(14)
             }
         }
-        val lines = text.split("\n").filter { it.isNotBlank() }
+        val lines = poemContent.split("\n").filter { it.isNotBlank() }
         for ((i, ln) in lines.withIndex()) {
             val tv = TextView(this)
             tv.text = ln
@@ -270,7 +270,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(0, dp(10), 0, 0)
         }
         val copyBtn = TextView(this).apply {
-            text = "复制全诗"
+            this.text = "复制全诗"
             textSize = 12f
             setTextColor(ContextCompat.getColor(this@MainActivity, R.color.cinnabar))
             background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_copy_button)
@@ -279,7 +279,7 @@ class MainActivity : AppCompatActivity() {
             isFocusable = true
             setOnClickListener {
                 val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                cm.setPrimaryClip(ClipData.newPlainText("诗词", text))
+                cm.setPrimaryClip(ClipData.newPlainText("诗词", poemContent))
                 Toast.makeText(this@MainActivity, "已复制全诗到剪切板", Toast.LENGTH_SHORT).show()
             }
         }
